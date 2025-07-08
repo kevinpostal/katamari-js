@@ -141,7 +141,7 @@
         let scene, camera, renderer, world;
         let katamari, ground, groundBody;
         let itemsToCollect = []; // Stores active Three.js item meshes
-        let physicsBodies = []; // Stores active Cannon.js item bodies
+        let physicsBodiesMap = new Map(); // Stores active Cannon.js item bodies, keyed by Three.js mesh
         let mountains = []; // Array to store mountain objects
         let katamariRadius = 2, targetKatamariSize = 100, itemsCollectedCount = 0;
         let rollingSynth, collectionSynth, shedSound; // Tone.js synthesizers
@@ -189,6 +189,15 @@
         const touchSensitivity = 0.5; // Adjust this value to change touch responsiveness
         const touchDeadZone = 20; // Pixels for a touch dead zone
 
+        // --- Octree for Spatial Partitioning ---
+        let itemOctree;
+        const OCTREE_MAX_DEPTH = 5; // Max depth of the octree
+        const OCTREE_MAX_ITEMS = 10; // Max items per node before subdividing
+
+        // --- LOD Variables ---
+        const LOD_DISTANCE_THRESHOLD = 100; // Distance beyond which items simplify/hide
+        const LOD_HIDE_DISTANCE = 150; // Distance beyond which items are hidden
+        const simpleMaterial = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.2 }); // A very simple material for LOD
 
         // --- UI ELEMENTS ---
         const katamariSizeUI = document.getElementById('katamari-size');
@@ -406,15 +415,22 @@
             }
 
             // Dispose active collectible items and their physics bodies
-            while (itemsToCollect.length > 0) {
-                const item = itemsToCollect.pop(); // Remove from active list
-                const itemCannonBody = physicsBodies.find(body => body.userData?.threeMesh === item);
+            // Iterate over a copy of the array as we're modifying it
+            for (let i = itemsToCollect.length - 1; i >= 0; i--) {
+                const item = itemsToCollect[i];
+                const itemCannonBody = physicsBodiesMap.get(item);
                 if (itemCannonBody) {
                     world.removeBody(itemCannonBody);
-                    physicsBodies = physicsBodies.filter(b => b !== itemCannonBody);
+                    physicsBodiesMap.delete(item);
                 }
-                // Instead of disposing, return to pool
+                scene.remove(item); // Remove from scene before returning to pool
                 returnItemToPool(item);
+            }
+            itemsToCollect = []; // Ensure this is empty after cleanup
+
+            // Clear the octree
+            if (itemOctree) {
+                itemOctree = null; // Let GC handle old octree
             }
 
             // Dispose mountains
@@ -448,7 +464,7 @@
             world.defaultContactMaterial.restitution = 0.3;
 
             itemsToCollect = []; // Ensure these are empty after cleanup
-            physicsBodies = [];
+            physicsBodiesMap = new Map(); // Re-initialize the map
             mountains = []; 
 
             currentTheme = await generateLevelTheme(); // Store the theme globally
@@ -456,6 +472,13 @@
             targetSizeUI.textContent = targetKatamariSize.toFixed(2) + 'm';
             itemsCollectedCount = 0; // Reset collected items count
             itemsCollectedUI.textContent = itemsCollectedCount;
+
+            // Initialize Octree for the new level
+            // Define the bounds of the world for the octree
+            const worldMin = new THREE.Vector3(-mapBoundary, -10, -mapBoundary); // Include some negative Y for items falling
+            const worldMax = new THREE.Vector3(mapBoundary, 100, mapBoundary); // Max Y can be higher for flying items if any
+            itemOctree = new Octree(worldMin, worldMax, OCTREE_MAX_DEPTH, OCTREE_MAX_ITEMS);
+            console.log("Octree initialized.");
 
 
             scene.background = new THREE.Color(currentTheme.skyColor);
@@ -547,7 +570,7 @@
             const safeZoneRadius = 50; // Define a radius around the origin where mountains shouldn't spawn
 
             for (let i = 0; i < 8; i++) {
-                const h = Math.random() * 50 + 30, r = Math.random() * 40 + 20;
+                const h = Math.random() * 50 + 30, r = Math.random() * 4.0 + 20; // Changed to 4.0 to make mountains smaller
                 const mountainGeo = new THREE.ConeGeometry(r, h, 16);
                 const mountain = new THREE.Mesh(mountainGeo, mountainMat);
                 mountain.castShadow = mountain.receiveShadow = true;
@@ -659,6 +682,7 @@
                         if (object.isMesh) {
                             object.material.transparent = true;
                             object.material.opacity = 0;
+                            object.userData.originalMaterial = object.material; // Store original material
                         }
                     });
                     pooledItem.scale.set(size, size, size); // Scale to desired size
@@ -679,6 +703,14 @@
                 if (itemThreeMesh.parent) {
                     itemThreeMesh.parent.remove(itemThreeMesh);
                 }
+                // Restore original material before pooling
+                itemThreeMesh.traverse(function (object) {
+                    if (object.isMesh && object.userData.originalMaterial) {
+                        object.material = object.userData.originalMaterial;
+                        object.material.transparent = false; // Assume original is opaque unless specified
+                        object.material.opacity = 1;
+                    }
+                });
                 itemPool.push(itemThreeMesh);
             } else {
                 // If pool is full, dispose of the item
@@ -1060,7 +1092,7 @@
             return threeMesh;
         }
 
-        // Modified createCollectibleItems to use object pooling
+        // Modified createCollectibleItems to use object pooling and Octree
         function createCollectibleItems(count, itemNames, centerPosition = new THREE.Vector3(0,0,0), spawnRadius = 100) {
             console.log(`createCollectibleItems: Attempting to create ${count} items.`);
             const itemColors = [0xFF6347, 0x6A5ACD, 0x3CB371, 0xFFD700, 0xBA55D3, 0x4682B4, 0xD2B48C, 0xFFA07A, 0x20B2AA, 0xFF69B4];
@@ -1070,7 +1102,6 @@
                 const size = Math.random() * 1.5 + 0.5; // Random size for the item
 
                 const threeMesh = getItemFromPool(itemName, color, size); // Get item from pool or create new
-                // No longer directly retrieve cannonShape, but physicsShapes array
 
                 // --- Procedural Generation Position Logic (Outside Frustum) ---
                 const maxAttempts = 50;
@@ -1118,7 +1149,8 @@
                 itemBody.quaternion.copy(threeMesh.quaternion);
                 itemBody.userData = { threeMesh: threeMesh }; 
                 world.addBody(itemBody); // Use world.addBody for cannon-es
-                physicsBodies.push(itemBody);
+                physicsBodiesMap.set(threeMesh, itemBody); // Store in map
+                itemOctree.add(threeMesh); // Add item to Octree
             }
             console.log(`createCollectibleItems: Finished creating ${count} items.`);
         }
@@ -1162,7 +1194,8 @@
             frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
 
             // Manage physics body sleeping/waking based on distance and frustum visibility
-            for (const body of physicsBodies) {
+            // Iterate over values of the map
+            for (const body of physicsBodiesMap.values()) {
                 if (body.userData && body.userData.threeMesh) {
                     const itemThreeMesh = body.userData.threeMesh; 
                     const distanceToKatamari = katamari.position.distanceTo(itemThreeMesh.position);
@@ -1200,7 +1233,7 @@
             katamari.quaternion.copy(katamariBody.quaternion);
 
             // Sync Three.js item meshes with their Cannon.js bodies
-            for (const body of physicsBodies) {
+            for (const body of physicsBodiesMap.values()) {
                 if (body.userData && body.userData.threeMesh) {
                     // Only update visual mesh if physics body is awake or has recently moved
                     if (body.sleepState === CANNON.Body.AWAKE || body.velocity.length() > 0.01 || body.angularVelocity.length() > 0.01) {
@@ -1210,21 +1243,19 @@
                 }
             }
 
-            // Handle item fade-in (for newly created items)
+            // Handle item fade-in and LOD (for newly created items)
             for (const item of itemsToCollect) {
+                const distanceToCamera = camera.position.distanceTo(item.position);
+
                 if (item.userData.isFadingIn) {
                     const elapsed = Date.now() - item.userData.fadeStartTime;
                     const progress = Math.min(1, elapsed / itemFadeDuration);
 
-                    if (item.isGroup) { // If it's a group, iterate through its meshes
-                        item.traverse(function (object) {
-                            if (object.isMesh && object.material.transparent) {
-                                object.material.opacity = progress;
-                            }
-                        });
-                    } else if (item.isMesh && item.material.transparent) { // If it's a single mesh
-                        item.material.opacity = progress;
-                    }
+                    item.traverse(function (object) {
+                        if (object.isMesh && object.material.transparent) {
+                            object.material.opacity = progress;
+                        }
+                    });
 
                     if (progress === 1) {
                         item.userData.isFadingIn = false;
@@ -1232,6 +1263,34 @@
                         item.traverse(function (object) {
                             if (object.isMesh && object.material.transparent) {
                                 object.material.transparent = false;
+                            }
+                        });
+                    }
+                }
+
+                // Apply LOD
+                if (!item.userData.isFadingIn) { // Only apply LOD after fade-in is complete
+                    if (distanceToCamera > LOD_HIDE_DISTANCE) {
+                        item.visible = false;
+                    } else if (distanceToCamera > LOD_DISTANCE_THRESHOLD) {
+                        item.visible = true;
+                        item.traverse(function (object) {
+                            if (object.isMesh) {
+                                if (object.material !== simpleMaterial) {
+                                    object.userData.originalMaterial = object.material; // Store original material
+                                    object.material = simpleMaterial;
+                                    object.material.transparent = true;
+                                    object.material.opacity = 0.2;
+                                }
+                            }
+                        });
+                    } else {
+                        item.visible = true;
+                        item.traverse(function (object) {
+                            if (object.isMesh && object.userData.originalMaterial) {
+                                object.material = object.userData.originalMaterial;
+                                object.material.transparent = false; // Assume original is opaque unless specified
+                                object.material.opacity = 1;
                             }
                         });
                     }
@@ -1363,42 +1422,67 @@
             }
         }
         
-        // --- CLEANUP OLD ITEMS (Modified to use object pooling) ---
+        // --- CLEANUP OLD ITEMS (Modified to use object pooling and Octree) ---
         function cleanupOldItems() {
+            // Query octree for items outside the cleanup threshold
+            const katamariPos = katamari.position;
+            const cleanupMin = new THREE.Vector3(katamariPos.x - cleanupDistanceThreshold, -Infinity, katamariPos.z - cleanupDistanceThreshold);
+            const cleanupMax = new THREE.Vector3(katamariPos.x + cleanupDistanceThreshold, Infinity, katamariPos.z + cleanupDistanceThreshold);
+            
+            const itemsInProximity = itemOctree.query(cleanupMin, cleanupMax);
+            const itemsToKeep = new Set(itemsInProximity);
+
             for (let i = itemsToCollect.length - 1; i >= 0; i--) {
                 const itemThreeMesh = itemsToCollect[i];
-                if (katamari.position.distanceTo(itemThreeMesh.position) > cleanupDistanceThreshold) {
-                    const itemCannonBody = physicsBodies.find(body => body.userData?.threeMesh === itemThreeMesh);
+                if (!itemsToKeep.has(itemThreeMesh)) { // If item is NOT in proximity, clean it up
+                    const itemCannonBody = physicsBodiesMap.get(itemThreeMesh);
                     if (itemCannonBody) {
                         world.removeBody(itemCannonBody);
-                        physicsBodies.splice(physicsBodies.indexOf(itemCannonBody), 1); // Remove from physicsBodies
+                        physicsBodiesMap.delete(itemThreeMesh);
                     }
                     scene.remove(itemThreeMesh);
                     itemsToCollect.splice(i, 1); // Remove from active list
+                    itemOctree.remove(itemThreeMesh); // Remove from Octree
                     returnItemToPool(itemThreeMesh); // Return to pool instead of disposing
                 }
             }
         }
 
-        // --- COLLISION DETECTION (Three.js based for Katamari-Item) ---
+        // --- COLLISION DETECTION (Octree based for Katamari-Item) ---
         function checkCollisions() {
             const katamariSphere = new THREE.Sphere(katamari.position, katamariRadius);
 
-            for (let i = itemsToCollect.length - 1; i >= 0; i--) {
-                const itemThreeMesh = itemsToCollect[i];
-                const itemCannonBody = physicsBodies.find(body => body.userData?.threeMesh === itemThreeMesh);
+            // Query the octree for potential collision candidates around the Katamari
+            const queryMin = new THREE.Vector3(
+                katamari.position.x - katamariRadius - 5,
+                katamari.position.y - katamariRadius - 5,
+                katamari.position.z - katamariRadius - 5
+            );
+            const queryMax = new THREE.Vector3(
+                katamari.position.x + katamariRadius + 5,
+                katamari.position.y + katamariRadius + 5,
+                katamari.position.z + katamariRadius + 5
+            );
 
-                if (!itemCannonBody) continue;
+            const potentialItems = itemOctree.query(queryMin, queryMax);
 
-                const itemSphere = new THREE.Sphere(itemThreeMesh.position, itemThreeMesh.userData.size / 2);
+            for (const itemThreeMesh of potentialItems) {
+                // Ensure the item hasn't already been collected in this frame
+                if (!itemThreeMesh.parent || itemThreeMesh.parent.name !== 'core') {
+                    const itemCannonBody = physicsBodiesMap.get(itemThreeMesh);
 
-                const distance = katamariSphere.center.distanceTo(itemSphere.center);
-                const combinedRadius = katamariSphere.radius + itemSphere.radius;
+                    if (!itemCannonBody) continue;
 
-                if (distance < combinedRadius && itemThreeMesh.userData.size < katamariRadius * 1.5) {
-                    console.log(`Collecting item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
-                    attachItem(itemThreeMesh, itemCannonBody);
-                    playCollectionSound();
+                    const itemSphere = new THREE.Sphere(itemThreeMesh.position, itemThreeMesh.userData.size / 2);
+
+                    const distance = katamariSphere.center.distanceTo(itemSphere.center);
+                    const combinedRadius = katamariSphere.radius + itemSphere.radius;
+
+                    if (distance < combinedRadius && itemThreeMesh.userData.size < katamariRadius * 1.5) {
+                        console.log(`Collecting item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
+                        attachItem(itemThreeMesh, itemCannonBody);
+                        playCollectionSound();
+                    }
                 }
             }
         }
@@ -1531,8 +1615,10 @@
                 shedItemBody.quaternion.copy(worldQuaternion);
                 shedItemBody.userData = { threeMesh: itemThreeMesh };
                 world.addBody(shedItemBody);
-                physicsBodies.push(shedItemBody);
-                console.log("Shed item re-added to physics world.");
+                physicsBodiesMap.set(itemThreeMesh, shedItemBody); // Add to map
+                itemsToCollect.push(itemThreeMesh); // Add back to itemsToCollect
+                itemOctree.add(itemThreeMesh); // Add back to Octree
+                console.log("Shed item re-added to physics world and octree.");
 
                 const impulseDirection = new CANNON.Vec3();
                 shedItemBody.position.vsub(katamariBody.position, impulseDirection);
@@ -1588,12 +1674,16 @@
             console.log(`Attaching item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
             // Remove from Cannon.js world
             world.removeBody(itemCannonBody);
-            physicsBodies.splice(physicsBodies.indexOf(itemCannonBody), 1);
+            physicsBodiesMap.delete(itemThreeMesh); // Remove from map
             console.log("Item removed from physics world.");
 
             // Remove from Three.js items to collect list
             itemsToCollect.splice(itemsToCollect.indexOf(itemThreeMesh), 1);
             console.log("Item removed from itemsToCollect array.");
+
+            // Remove from Octree
+            itemOctree.remove(itemThreeMesh);
+            console.log("Item removed from Octree.");
 
             // Increment collected items count and update UI
             itemsCollectedCount++;
@@ -1656,6 +1746,120 @@
             camera.fov = fov;
             camera.updateProjectionMatrix();
         }
+
+        // --- Octree Implementation ---
+        class Octree {
+            constructor(min, max, maxDepth, maxItems) {
+                this.bounds = new THREE.Box3(min, max);
+                this.children = []; // Sub-nodes
+                this.items = []; // Items in this node
+                this.depth = 0;
+                this.maxDepth = maxDepth;
+                this.maxItems = maxItems;
+            }
+
+            add(item) {
+                if (!this.bounds.containsPoint(item.position)) {
+                    // console.warn("Item outside octree bounds:", item.position);
+                    return false;
+                }
+
+                if (this.children.length > 0) { // If subdivided, pass to children
+                    return this.addToChildren(item);
+                } else if (this.items.length < this.maxItems || this.depth >= this.maxDepth) {
+                    this.items.push(item);
+                    item.userData.octreeNode = this; // Store reference to its node
+                    return true;
+                } else { // Subdivide
+                    this.subdivide();
+                    return this.addToChildren(item);
+                }
+            }
+
+            remove(item) {
+                const node = item.userData.octreeNode;
+                if (node && node.items.includes(item)) {
+                    const index = node.items.indexOf(item);
+                    if (index > -1) {
+                        node.items.splice(index, 1);
+                        item.userData.octreeNode = null;
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            addToChildren(item) {
+                for (const child of this.children) {
+                    if (child.bounds.containsPoint(item.position)) {
+                        return child.add(item);
+                    }
+                }
+                // If it doesn't fit in any child (due to floating point inaccuracies or being on a boundary)
+                // add it to the current node. This is a fallback.
+                this.items.push(item);
+                item.userData.octreeNode = this;
+                return true;
+            }
+
+            subdivide() {
+                const center = new THREE.Vector3();
+                this.bounds.getCenter(center);
+                const halfSize = new THREE.Vector3();
+                this.bounds.getSize(halfSize).multiplyScalar(0.5);
+
+                const minX = this.bounds.min.x;
+                const minY = this.bounds.min.y;
+                const minZ = this.bounds.min.z;
+                const midX = center.x;
+                const midY = center.y;
+                const midZ = center.z;
+
+                // Create 8 sub-nodes
+                this.children.push(new Octree(new THREE.Vector3(minX, minY, minZ), new THREE.Vector3(midX, midY, midZ), this.maxDepth, this.maxItems));
+                this.children.push(new Octree(new THREE.Vector3(midX, minY, minZ), new THREE.Vector3(this.bounds.max.x, midY, midZ), this.maxDepth, this.maxItems));
+                this.children.push(new Octree(new THREE.Vector3(minX, midY, minZ), new THREE.Vector3(midX, this.bounds.max.y, midZ), this.maxDepth, this.maxItems));
+                this.children.push(new Octree(new THREE.Vector3(midX, midY, minZ), new THREE.Vector3(this.bounds.max.x, this.bounds.max.y, midZ), this.maxDepth, this.maxItems));
+                this.children.push(new Octree(new THREE.Vector3(minX, minY, midZ), new THREE.Vector3(midX, midY, this.bounds.max.z), this.maxDepth, this.maxItems));
+                this.children.push(new Octree(new THREE.Vector3(midX, minY, midZ), new THREE.Vector3(this.bounds.max.x, midY, this.bounds.max.z), this.maxDepth, this.maxItems));
+                this.children.push(new Octree(new THREE.Vector3(minX, midY, midZ), new THREE.Vector3(midX, this.bounds.max.y, this.bounds.max.z), this.maxDepth, this.maxItems));
+                this.children.push(new Octree(new THREE.Vector3(midX, midY, midZ), new THREE.Vector3(this.bounds.max.x, this.bounds.max.y, this.bounds.max.z), this.maxDepth, this.maxItems));
+
+                for (const child of this.children) {
+                    child.depth = this.depth + 1;
+                }
+
+                // Redistribute items to children
+                for (const item of this.items) {
+                    this.addToChildren(item);
+                }
+                this.items = []; // Clear items from parent node
+            }
+
+            query(min, max) {
+                const results = [];
+                const queryBox = new THREE.Box3(min, max);
+
+                if (!this.bounds.intersectsBox(queryBox)) {
+                    return results;
+                }
+
+                // Add items from this node if they intersect the query box
+                for (const item of this.items) {
+                    const itemSphere = new THREE.Sphere(item.position, item.userData.size / 2); // Approximate item bounds with sphere
+                    if (queryBox.intersectsSphere(itemSphere)) {
+                        results.push(item);
+                    }
+                }
+
+                // Recurse into children
+                for (const child of this.children) {
+                    results.push(...child.query(min, max));
+                }
+                return results;
+            }
+        }
+
 
         // Initialize the game when the window loads
         window.onload = function() {
