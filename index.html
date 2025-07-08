@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Katamari World</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Inter', 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            /* Prevent text selection on touch devices */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none; /* Prevent browser touch gestures like pull-to-refresh */
+        }
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            display: none; /* Hidden by default, shown when loading */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5em;
+            z-index: 100;
+            text-shadow: 0 0 15px rgba(255,255,255,0.8);
+            animation: pulse 2s infinite alternate;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.7; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.05); }
+        }
+        #game-ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        #progress-container {
+            width: 200px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            border-radius: 10px;
+            transition: width 0.1s ease-out;
+        }
+        #message-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 2em;
+            font-weight: bold;
+            color: #FFD700;
+            display: none; /* Hidden by default, shown on win */
+            z-index: 100;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            cursor: pointer; /* Indicate it's clickable to restart */
+        }
+        #controls-info {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #ccc;
+            z-index: 10;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">Generating a new universe... ✨</div>
+    <div id="game-ui">
+        <div>Size: <span id="katamari-size">2.00m</span></div>
+        <div>Speed: <span id="katamari-speed">0.00m/s</span></div>
+        <div>Items Collected: <span id="items-collected">0</span></div>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div>Target Size: <span id="target-size">100.00m</span></div>
+    </div>
+    <div id="controls-info">
+        <p>Use <b>W, A, S, D</b> or <b>Arrow Keys</b> to move the Katamari.</p>
+        <p><b>Swipe</b> on screen to move on mobile.</p>
+        <p>Press <b>R</b> to reset Katamari position. Press <b>Space</b> to generate a new world.</p>
+    </div>
+    <div id="message-overlay"></div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+    <!-- Tone.js Library for Audio Synthesis (Loaded globally) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+
+    <script type="module">
+        // Cannon-ES Library for Physics (Moved into the main module script)
+        import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js';
+
+        // --- SCENE/PHYSICS SETUP ---
+        let scene, camera, renderer, world;
+        let katamari, ground, groundBody;
+        let itemsToCollect = []; // Stores active Three.js item meshes
+        let physicsBodies = []; // Stores active Cannon.js item bodies
+        let mountains = []; // Array to store mountain objects
+        let katamariRadius = 2, targetKatamariSize = 100, itemsCollectedCount = 0;
+        let rollingSynth, collectionSynth, shedSound; // Tone.js synthesizers
+        const keys = {}, clock = new THREE.Clock();
+        const moveSpeed = 15, damping = 0.1, timeStep = 1 / 60; 
+        let currentLevel = 1;
+        let isGeneratingLevel = false; // Flag to prevent physics updates during level generation
+        let smoothedSpeed = 0; // New variable for smoothing camera FOV changes
+        let currentTheme; // Store the current theme to regenerate items
+
+        // Cooldowns
+        let lastCollectionSoundTime = 0;
+        const collectionSoundCooldown = 0.05; // 0.05 seconds cooldown
+        let lastShedTime = 0; // New variable to track last shed time
+        const shedCooldown = 1000; // 1 second cooldown for shedding items
+
+        // Dynamic item generation variables
+        let lastGenerationPosition = new THREE.Vector3();
+        const generationDistanceThreshold = 50; // Generate new items every 50 units of travel
+        const cleanupDistanceThreshold = 200; // Remove items beyond 200 units from Katamari
+        const mapBoundary = 240; // Max X and Z coordinate for item generation to stay on map
+        const physicsActiveDistance = 100; // Distance from Katamari within which physics bodies are always active
+
+        // Item fade-in duration in milliseconds
+        const itemFadeDuration = 1000; 
+
+        // Global frustum for visibility checks
+        const frustum = new THREE.Frustum();
+
+        // Katamari physics body
+        let katamariBody;
+
+        // --- Object Pooling for Collectible Items ---
+        const itemPool = [];
+        const maxPoolSize = 500; // Max number of items to keep in the pool
+
+        // --- Touch Input Variables ---
+        const touchInput = {
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            active: false
+        };
+        const touchSensitivity = 0.5; // Adjust this value to change touch responsiveness
+        const touchDeadZone = 20; // Pixels for a touch dead zone
+
+
+        // --- UI ELEMENTS ---
+        const katamariSizeUI = document.getElementById('katamari-size');
+        const katamariSpeedUI = document.getElementById('katamari-speed');
+        const itemsCollectedUI = document.getElementById('items-collected');
+        const progressBar = document.getElementById('progress-bar');
+        const targetSizeUI = document.getElementById('target-size');
+        const messageOverlay = document.getElementById('message-overlay');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+
+        // --- INIT ---
+        async function init() {
+            console.log("Tone object after script load:", Tone);
+            console.log("Type of Tone.NoiseSynth:", typeof Tone.NoiseSynth);
+            console.log("Type of Tone.Synth:", typeof Tone.Synth);
+            console.log("Type of Tone.MembraneSynth:", typeof Tone.MembraneSynth);
+            console.log("CANNON object after module import:", CANNON);
+            console.log("Type of CANNON.World:", typeof CANNON.World);
+
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 15, 30);
+            camera.lookAt(0, 0, 0);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            // Physics world setup (using CANNON from cannon-es)
+            world = new CANNON.World();
+            world.gravity.set(0, -9.82, 0);
+            world.broadphase = new CANNON.SAPBroadphase(world);
+            world.solver = new CANNON.GSSolver();
+            world.solver.iterations = 7; // Reduced for performance
+            world.defaultContactMaterial.friction = 0.7;
+            world.defaultContactMaterial.restitution = 0.3;
+
+            // Lighting
+            scene.add(new THREE.AmbientLight(0x404040));
+            const hemiLight = new THREE.HemisphereLight(0xADD8E6, 0x8B4513, 0.8);
+            scene.add(hemiLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight.position.set(20, 50, 20);
+            dirLight.castShadow = true;
+            Object.assign(dirLight.shadow.camera, { top: 50, bottom: -50, left: -50, right: 50 });
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.height = 2048;
+            dirLight.shadow.bias = -0.0005;
+            scene.add(dirLight);
+
+            // Initialize Tone.js synths
+            rollingSynth = new Tone.NoiseSynth({
+                noise: { type: "white" },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 1, release: 0.1 }
+            }).toDestination();
+            rollingSynth.volume.value = -30; // Start quiet
+
+            collectionSynth = new Tone.Synth({
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
+            }).toDestination();
+            collectionSynth.volume.value = -10; // Default volume for collection sound
+
+            shedSound = new Tone.MembraneSynth({
+                pitchDecay: 0.05,
+                octaves: 2,
+                envelope: {
+                    attack: 0.001,
+                    decay: 0.2,
+                    sustain: 0.01,
+                    release: 0.2,
+                    attackCurve: "exponential"
+                },
+                oscillator: { type: "sine" },
+                volume: -15
+            }).toDestination();
+
+            // Keyboard event listeners
+            window.addEventListener('keydown', e => {
+                keys[e.key.toLowerCase()] = true;
+                if (e.key.toLowerCase() === ' ') generateNewLevel();
+                else if (e.key.toLowerCase() === 'r') resetKatamariPosition();
+            });
+            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+            
+            // Touch event listeners for mobile control
+            renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+            renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+            renderer.domElement.addEventListener('touchend', onTouchEnd);
+
+            window.addEventListener('resize', onWindowResize);
+            messageOverlay.addEventListener('click', generateNewLevel); // Click to restart/next level
+
+            console.log("Calling generateNewLevel from init...");
+            await generateNewLevel(); // Initial level generation
+            console.log("generateNewLevel completed. Starting animation loop.");
+            animate(); // Start the game loop
+        }
+
+        // --- Touch Input Handlers ---
+        function onTouchStart(event) {
+            event.preventDefault(); // Prevent scrolling/zooming on the canvas
+            touchInput.active = true;
+            touchInput.startX = event.touches[0].clientX;
+            touchInput.startY = event.touches[0].clientY;
+            touchInput.currentX = touchInput.startX;
+            touchInput.currentY = touchInput.startY;
+        }
+
+        function onTouchMove(event) {
+            event.preventDefault(); // Prevent scrolling/zooming on the canvas
+            if (touchInput.active) {
+                touchInput.currentX = event.touches[0].clientX;
+                touchInput.currentY = event.touches[0].clientY;
+            }
+        }
+
+        function onTouchEnd(event) {
+            touchInput.active = false;
+            // Reset touch input when touch ends
+            touchInput.x = 0;
+            touchInput.y = 0;
+            touchInput.startX = 0;
+            touchInput.startY = 0;
+            touchInput.currentX = 0;
+            touchInput.currentY = 0;
+        }
+
+
+        // --- LEVEL THEMING ---
+        async function generateLevelTheme() {
+            console.log("Starting generateLevelTheme...");
+            loadingOverlay.style.display = 'flex';
+            const themes = [
+                {
+                    themeName: "Our Green Earth",
+                    story: "The King of All Cosmos demands a pristine Earth! Roll up all the litter and grow your Katamari!",
+                    items: ["Car", "Tree", "House", "Rock", "Bush", "Bench", "Lamp Post", "Trash Can", "Mailbox"],
+                    groundColor: "#4CAF50", skyColor: "#87CEEB",
+                    targetMultiplier: 0.2 // Reduced target for first level
+                },
+                {
+                    themeName: "Urban Jungle",
+                    story: "The city is a mess! Clean up the streets and grow your Katamari to skyscraper size!",
+                    items: ["Car", "Lamp Post", "Trash Can", "Bench", "Mailbox", "Fire Hydrant", "Traffic Cone", "Hot Dog Stand"],
+                    groundColor: "#607D8B", skyColor: "#B0C4DE",
+                    targetMultiplier: 2 // Larger target for city
+                },
+                {
+                    themeName: "Cosmic Debris",
+                    story: "The cosmos is cluttered! Roll up space junk and form a new star!",
+                    items: ["Asteroid", "Satellite", "Space Debris", "Comet Fragment", "Moon Rock", "Star Dust Cluster"],
+                    groundColor: "#2C3E50", skyColor: "#0A0A2A",
+                    targetMultiplier: 4 // Even larger target for space
+                }
+            ];
+            const theme = themes[(currentLevel - 1) % themes.length]; // Cycle through themes
+            loadingOverlay.textContent = `Generating ${theme.themeName}... ✨`; // Update loading text
+            await new Promise(r => setTimeout(r, 1500)); // Simulate loading time
+            loadingOverlay.style.display = 'none';
+            console.log("Finished generateLevelTheme. Selected theme:", theme.themeName);
+            return theme;
+        }
+
+        // --- RESOURCE DISPOSAL ---
+        function disposeObject(obj) {
+            if (!obj) return;
+
+            // Dispose of geometry and material if they exist
+            if (obj.isMesh) {
+                if (obj.geometry) {
+                    obj.geometry.dispose();
+                }
+                if (obj.material) {
+                    if (Array.isArray(obj.material)) {
+                        obj.material.forEach(material => material.dispose());
+                    } else {
+                        obj.material.dispose();
+                    }
+                }
+            }
+
+            // Recursively dispose children
+            if (obj.children) {
+                while (obj.children.length > 0) {
+                    disposeObject(obj.children[0]);
+                    obj.remove(obj.children[0]);
+                }
+            }
+        }
+
+        function cleanupCurrentLevel() {
+            console.log("Cleaning up previous level objects...");
+
+            // Dispose Katamari and its children
+            if (katamari) {
+                disposeObject(katamari);
+                scene.remove(katamari);
+                // Also remove Katamari physics body
+                if (katamariBody) {
+                    world.removeBody(katamariBody);
+                }
+            }
+
+            // Dispose ground and its physics body
+            if (ground) {
+                disposeObject(ground);
+                scene.remove(ground);
+                if (groundBody) {
+                    world.removeBody(groundBody);
+                }
+            }
+
+            // Dispose active collectible items and their physics bodies
+            while (itemsToCollect.length > 0) {
+                const item = itemsToCollect.pop(); // Remove from active list
+                const itemCannonBody = physicsBodies.find(body => body.userData?.threeMesh === item);
+                if (itemCannonBody) {
+                    world.removeBody(itemCannonBody);
+                    physicsBodies = physicsBodies.filter(b => b !== itemCannonBody);
+                }
+                // Instead of disposing, return to pool
+                returnItemToPool(item);
+            }
+
+            // Dispose mountains
+            while (mountains.length > 0) {
+                const mountain = mountains.pop();
+                disposeObject(mountain);
+                scene.remove(mountain);
+            }
+
+            console.log("Finished cleaning up previous level objects.");
+        }
+
+
+        // --- LEVEL CREATION ---
+        async function generateNewLevel() {
+            console.log("Starting generateNewLevel...");
+            isGeneratingLevel = true; // Set flag at the start of level generation
+            stopRollingSound();
+            messageOverlay.style.display = 'none'; // Hide win message
+
+            cleanupCurrentLevel(); // Call the new cleanup function
+
+            // Re-initialize Cannon.js world for items
+            console.log("Re-initializing physics world...");
+            world = new CANNON.World();
+            world.gravity.set(0, -9.82, 0);
+            world.broadphase = new CANNON.SAPBroadphase(world);
+            world.solver = new CANNON.GSSolver();
+            world.solver.iterations = 7; // Reduced for performance
+            world.defaultContactMaterial.friction = 0.7;
+            world.defaultContactMaterial.restitution = 0.3;
+
+            itemsToCollect = []; // Ensure these are empty after cleanup
+            physicsBodies = [];
+            mountains = []; 
+
+            currentTheme = await generateLevelTheme(); // Store the theme globally
+            targetKatamariSize = 100 * currentTheme.targetMultiplier; // Scale target based on theme
+            targetSizeUI.textContent = targetKatamariSize.toFixed(2) + 'm';
+            itemsCollectedCount = 0; // Reset collected items count
+            itemsCollectedUI.textContent = itemsCollectedCount;
+
+
+            scene.background = new THREE.Color(currentTheme.skyColor);
+            scene.fog = new THREE.Fog(currentTheme.skyColor, 50, 200);
+            createEnvironment(currentTheme);
+            console.log("Environment created.");
+
+            // Ground (still has a Cannon.js body to interact with items)
+            console.log("Creating ground...");
+            const groundColor1 = new THREE.Color(currentTheme.groundColor);
+            const groundColor2 = groundColor1.clone().lerp(new THREE.Color(0x000000), 0.1); // Slightly darker variant
+            const groundTexture = generateGroundTexture(groundColor1, groundColor2);
+            const groundMat = new THREE.MeshLambertMaterial({ map: groundTexture });
+
+            const groundGeo = new THREE.PlaneGeometry(500, 500); // Larger ground
+            ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            groundBody = new CANNON.Body({ mass: 0 });
+            groundBody.addShape(new CANNON.Plane());
+            groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+            world.addBody(groundBody); // Use world.addBody for cannon-es
+            console.log("Ground created and added to physics world.");
+
+            // Katamari (now purely a Three.js object for movement)
+            console.log("Creating Katamari...");
+            katamariRadius = 2; // Reset radius for new level
+            katamari = new THREE.Group();
+            const katGeo = new THREE.SphereGeometry(katamariRadius, 32, 32);
+            const katamariTexture = new THREE.CanvasTexture(generateKatamariTexture());
+            const katMat = new THREE.MeshStandardMaterial({
+                map: katamariTexture, roughness: 0.6, metalness: 0.1
+            });
+            const katamariBall = new THREE.Mesh(katGeo, katMat);
+            katamariBall.castShadow = true;
+            katamariBall.name = 'core';
+            katamari.add(katamariBall);
+            katamari.position.y = katamariRadius; // Keep it on the ground
+            scene.add(katamari);
+            
+            // Create Katamari physics body
+            const katamariShape = new CANNON.Sphere(katamariRadius);
+            katamariBody = new CANNON.Body({
+                mass: 100, // Initial mass, will be updated by updateKatamariPhysics
+                position: new CANNON.Vec3(0, katamariRadius, 0),
+                shape: katamariShape,
+                linearDamping: 0.4, // To slow down when no input
+                angularDamping: 0.4 // To slow rotation
+            });
+            world.addBody(katamariBody); // Use world.addBody for cannon-es
+            updateKatamariPhysics(); // Initial physics update for Katamari
+            console.log("Katamari created and added to physics world.");
+
+            lastGenerationPosition.copy(katamari.position); // Initialize generation position
+            console.log("Creating initial collectible items...");
+            createCollectibleItems(200, currentTheme.items, new THREE.Vector3(0,0,0), 180); // Initial generation around origin (reduced count)
+            console.log("Initial collectible items created.");
+            isGeneratingLevel = false; // Clear flag after level generation is complete
+            console.log("generateNewLevel finished.");
+        }
+
+        function createEnvironment(theme) {
+            console.log("createEnvironment: Removing old environment objects...");
+            // Remove old environment objects and dispose their resources
+            scene.children.filter(obj => obj.userData.isEnvironment).forEach(obj => {
+                disposeObject(obj); // Dispose resources
+                scene.remove(obj);
+            });
+            mountains = []; // Ensure mountains array is cleared
+            console.log("createEnvironment: Old environment objects removed.");
+
+            // Clouds
+            console.log("createEnvironment: Creating clouds...");
+            const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, roughness: 1 });
+            for (let i = 0; i < 15; i++) {
+                const cloudGeo = new THREE.SphereGeometry(Math.random() * 8 + 5, 16, 16);
+                const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+                cloud.position.set((Math.random() - 0.5) * 400, 50 + Math.random() * 30, (Math.random() - 0.5) * 400);
+                cloud.userData.isEnvironment = true;
+                scene.add(cloud);
+            }
+            console.log("createEnvironment: Clouds created.");
+
+            // Mountains (or other distant scenery based on theme)
+            console.log("createEnvironment: Creating mountains...");
+            const mountainColor = new THREE.Color(theme.groundColor).lerp(new THREE.Color(0x000000), 0.2);
+            const mountainMat = new THREE.MeshStandardMaterial({ color: mountainColor, roughness: 0.8 });
+            const safeZoneRadius = 50; // Define a radius around the origin where mountains shouldn't spawn
+
+            for (let i = 0; i < 8; i++) {
+                const h = Math.random() * 50 + 30, r = Math.random() * 40 + 20;
+                const mountainGeo = new THREE.ConeGeometry(r, h, 16);
+                const mountain = new THREE.Mesh(mountainGeo, mountainMat);
+                mountain.castShadow = mountain.receiveShadow = true;
+                mountain.userData.isEnvironment = true;
+                mountain.userData.size = r; // Store the effective radius for collision
+                mountain.userData.minSizeToPass = r * 1.8; // Katamari must be at least 1.8x mountain radius to pass
+
+                let xPos, zPos;
+                let positionFound = false;
+                // Try to find a position outside the safe zone
+                while (!positionFound) {
+                    xPos = (Math.random() - 0.5) * 500;
+                    zPos = (Math.random() - 0.5) * 500;
+                    // Check if the mountain's base is outside the safe zone
+                    if (Math.sqrt(xPos * xPos + zPos * zPos) > safeZoneRadius) {
+                        positionFound = true;
+                    }
+                }
+                mountain.position.set(xPos, h / 2 - 0.1, zPos);
+                scene.add(mountain);
+                mountains.push(mountain); // Add to new mountains array
+            }
+            console.log("createEnvironment: Mountains created.");
+        }
+
+        function generateKatamariTexture() {
+            const canvas = document.createElement('canvas');
+            const size = 256;
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+
+            // Background color for the Katamari (a base color)
+            ctx.fillStyle = `hsl(${Math.random() * 360}, 70%, 50%)`;
+            ctx.fillRect(0, 0, size, size);
+
+            // Draw random "patches" to simulate collected items
+            const numPatches = 100 + Math.random() * 100;
+            for (let i = 0; i < numPatches; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const patchSize = 10 + Math.random() * 30; // Size of each patch
+                const shapeType = Math.random();
+
+                // Random vibrant color for the patch
+                ctx.fillStyle = `hsl(${Math.random() * 360}, 90%, ${50 + Math.random() * 20}%)`;
+                ctx.globalAlpha = 0.7 + Math.random() * 0.3; // Vary opacity
+
+                ctx.beginPath();
+                if (shapeType < 0.5) {
+                    // Draw a rectangle
+                    ctx.fillRect(x, y, patchSize, patchSize);
+                } else {
+                    // Draw a circle
+                    ctx.arc(x, y, patchSize / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.globalAlpha = 1; // Reset alpha
+
+            return canvas;
+        }
+
+        // New function to generate a repeating ground texture
+        function generateGroundTexture(color1, color2) {
+            const canvas = document.createElement('canvas');
+            const size = 128; // Smaller texture for tiling
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Create a more varied, less uniform ground texture
+            for (let x = 0; x < size; x++) {
+                for (let y = 0; y < size; y++) { 
+                    // Perlin-like noise for smoother transitions
+                    const noiseVal = Math.sin(x * 0.1) * 0.5 + Math.cos(y * 0.1) * 0.5 + 1; // 0 to 2
+                    const blend = (noiseVal / 2) * 0.4 + 0.6; // Blend factor between 0.6 and 1.0
+                    
+                    const r = Math.floor(color1.r * 255 * blend + color2.r * 255 * (1 - blend));
+                    const g = Math.floor(color1.g * 255 * blend + color2.g * 255 * (1 - blend));
+                    const b = Math.floor(color1.b * 255 * blend + color2.b * 255 * (1 - blend));
+                    ctx.fillStyle = `rgb(${r},${g},${b})`;
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(50, 50); // Repeat many times over the large ground plane
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Improve texture quality at oblique angles
+            return texture;
+        }
+
+        // --- ITEM POOLING FUNCTIONS ---
+        function getItemFromPool(itemName, color, size) {
+            // Try to find an item in the pool that matches the type
+            for (let i = 0; i < itemPool.length; i++) {
+                const pooledItem = itemPool[i];
+                if (pooledItem.userData.itemName === itemName && !pooledItem.parent) { // Check if not currently in use
+                    itemPool.splice(i, 1); // Remove from pool
+                    // Reset properties for reuse
+                    pooledItem.visible = true;
+                    pooledItem.userData.isFadingIn = true;
+                    pooledItem.userData.fadeStartTime = Date.now();
+                    // Reset opacity for fade-in
+                    pooledItem.traverse(function (object) {
+                        if (object.isMesh) {
+                            object.material.transparent = true;
+                            object.material.opacity = 0;
+                        }
+                    });
+                    pooledItem.scale.set(size, size, size); // Scale to desired size
+                    return pooledItem;
+                }
+            }
+            // If not found in pool, create a new one
+            return createNewItemMesh(itemName, color, size);
+        }
+
+        function returnItemToPool(itemThreeMesh) {
+            if (itemPool.length < maxPoolSize) {
+                // Reset item state for pooling
+                itemThreeMesh.visible = false;
+                itemThreeMesh.userData.isFadingIn = false;
+                itemThreeMesh.userData.fadeStartTime = 0;
+                // Ensure it's detached from any parent (e.g., Katamari) before pooling
+                if (itemThreeMesh.parent) {
+                    itemThreeMesh.parent.remove(itemThreeMesh);
+                }
+                itemPool.push(itemThreeMesh);
+            } else {
+                // If pool is full, dispose of the item
+                disposeObject(itemThreeMesh);
+            }
+        }
+
+        // Helper to create a new item mesh (extracted from createCollectibleItems)
+        function createNewItemMesh(itemName, color, size) {
+            let threeMesh, physicsShapes = [], itemGroup = new THREE.Group();
+            itemGroup.userData.itemName = itemName; // Store item name for pooling
+
+            // Common materials for sub-meshes within compound shapes
+            const transparentMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true, opacity: 0 });
+
+            switch (itemName) {
+                case 'Car':
+                    // Physics shapes for Car
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size, size * 0.4, size * 0.5)), offset: new CANNON.Vec3(0, size * 0.4, 0) });
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size * 0.6, size * 0.3, size * 0.4)), offset: new CANNON.Vec3(0, size * 0.9, 0) });
+
+                    // Main body
+                    const carBodyGeo = new THREE.BoxGeometry(size * 2, size * 0.8, size);
+                    const carBody = new THREE.Mesh(carBodyGeo, transparentMat);
+                    carBody.castShadow = carBody.receiveShadow = true; itemGroup.add(carBody);
+
+                    // Cabin
+                    const carCabinGeo = new THREE.BoxGeometry(size * 1.2, size * 0.6, size * 0.8);
+                    const carCabin = new THREE.Mesh(carCabinGeo, transparentMat.clone()); // Clone for separate opacity
+                    carCabin.castShadow = carCabin.receiveShadow = true; carCabin.position.y = size * 0.7; itemGroup.add(carCabin);
+
+                    // Windshields (front and back) - using a different material
+                    const windshieldMat = new THREE.MeshStandardMaterial({ color: 0xADD8E6, transparent: true, opacity: 0.7 });
+                    const frontWindshield = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.1, size * 0.4), windshieldMat);
+                    frontWindshield.position.set(0, size * 0.8, size * 0.4); itemGroup.add(frontWindshield);
+                    const backWindshield = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.1, size * 0.4), windshieldMat.clone());
+                    backWindshield.position.set(0, size * 0.8, -size * 0.4); backWindshield.rotation.y = Math.PI; itemGroup.add(backWindshield);
+
+                    // Wheels
+                    const wheelGeo = new THREE.CylinderGeometry(size * 0.25, size * 0.25, size * 0.2, 16);
+                    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, transparent: true, opacity: 0 });
+                    for (const [dx, dz] of [[0.7, 0.5],[ -0.7, 0.5],[0.7, -0.5],[ -0.7, -0.5]]) {
+                        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                        wheel.rotation.z = Math.PI / 2;
+                        wheel.position.set(size * dx, -size * 0.2, size * dz);
+                        itemGroup.add(wheel);
+                    }
+                    threeMesh = itemGroup;
+                    threeMesh.userData.size = size * 2; // Effective size for collection
+                    break;
+
+                case 'Tree':
+                    const treeType = Math.random();
+                    if (treeType < 0.33) { // Tall and slender tree
+                        // Physics shapes
+                        physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.08, size * 0.12, size * 1.2, 8), offset: new CANNON.Vec3(0, size * 0.6, 0) }); // Trunk
+                        physicsShapes.push({ shape: new CANNON.Cylinder(0, size * 0.4, size * 0.8, 16), offset: new CANNON.Vec3(0, size * 1.2, 0) }); // Foliage
+                        
+                        // Trunk
+                        const trunkGeo = new THREE.CylinderGeometry(size * 0.08, size * 0.12, size * 1.2, 8);
+                        const trunk = new THREE.Mesh(trunkGeo, transparentMat);
+                        trunk.castShadow = trunk.receiveShadow = true;
+                        trunk.position.y = size * 0.6; itemGroup.add(trunk);
+
+                        // Foliage (cone shape for a pine-like tree)
+                        const foliageMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.5, transparent: true, opacity: 0 });
+                        const foliageGeo = new THREE.ConeGeometry(size * 0.4, size * 0.8, 16);
+                        const foliage = new THREE.Mesh(foliageGeo, foliageMat);
+                        foliage.castShadow = foliage.receiveShadow = true;
+                        foliage.position.y = size * 1.2; itemGroup.add(foliage);
+
+                        threeMesh = itemGroup;
+                        threeMesh.userData.size = size * 1.5;
+                    } else if (treeType < 0.66) { // Bushy tree
+                        // Physics shapes
+                        physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.15, size * 0.2, size * 0.5, 8), offset: new CANNON.Vec3(0, size * 0.25, 0) }); // Trunk
+                        physicsShapes.push({ shape: new CANNON.Sphere(size * 0.9), offset: new CANNON.Vec3(0, size * 0.9, 0) }); // Bushy foliage
+                        
+                        // Trunk (shorter, wider)
+                        const trunkGeo = new THREE.CylinderGeometry(size * 0.15, size * 0.2, size * 0.5, 8);
+                        const trunk = new THREE.Mesh(trunkGeo, transparentMat);
+                        trunk.castShadow = trunk.receiveShadow = true;
+                        trunk.position.y = size * 0.25; itemGroup.add(trunk);
+
+                        // Foliage (multiple larger spheres for a bushy look)
+                        const foliageMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.5, transparent: true, opacity: 0 });
+                        for (let j = 0, n = 4 + Math.floor(Math.random() * 3); j < n; j++) {
+                            const sphereSize = size * (0.4 + Math.random() * 0.3);
+                            const foliageGeo = new THREE.SphereGeometry(sphereSize, 16, 16);
+                            const foliage = new THREE.Mesh(foliageGeo, foliageMat);
+                            foliage.castShadow = foliage.receiveShadow = true;
+                            foliage.position.set((Math.random() - 0.5) * size * 0.8, size * 0.5 + (Math.random() * size * 0.5),
+                                (Math.random() - 0.5) * size * 0.8);
+                            itemGroup.add(foliage);
+                        }
+                        threeMesh = itemGroup;
+                        threeMesh.userData.size = size * 1.8;
+                    } else { // Small sapling / shrub
+                        // Physics shapes
+                        physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.05, size * 0.08, size * 0.3, 6), offset: new CANNON.Vec3(0, size * 0.15, 0) }); // Trunk
+                        physicsShapes.push({ shape: new CANNON.Sphere(size * 0.6), offset: new CANNON.Vec3(0, size * 0.5, 0) }); // Foliage
+                        
+                        // Trunk (very small)
+                        const trunkGeo = new THREE.CylinderGeometry(size * 0.05, size * 0.08, size * 0.3, 6);
+                        const trunk = new THREE.Mesh(trunkGeo, transparentMat);
+                        trunk.castShadow = trunk.receiveShadow = true;
+                        trunk.position.y = size * 0.15; itemGroup.add(trunk);
+
+                        // Foliage (single, slightly irregular sphere)
+                        const foliageMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.5, transparent: true, opacity: 0 });
+                        const foliageGeo = new THREE.SphereGeometry(size * 0.6, 12, 12);
+                        const foliage = new THREE.Mesh(foliageGeo, foliageMat);
+                        foliage.castShadow = foliage.receiveShadow = true;
+                        foliage.position.y = size * 0.5; itemGroup.add(foliage);
+
+                        threeMesh = itemGroup;
+                        threeMesh.userData.size = size * 1.2;
+                    }
+                    break;
+
+                case 'House':
+                    // Physics shapes for House
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size * 0.75, size * 0.6, size * 0.75)), offset: new CANNON.Vec3(0, size * 0.6, 0) }); // Main body
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size * 0.6, size * 0.4, size * 0.6)), offset: new CANNON.Vec3(0, size * 1.4, 0) }); // Roof
+                    
+                    itemGroup = new THREE.Group();
+                    // Main body
+                    const mainBodyGeo = new THREE.BoxGeometry(size * 1.5, size * 1.2, size * 1.5);
+                    const mainBody = new THREE.Mesh(mainBodyGeo, transparentMat);
+                    mainBody.castShadow = mainBody.receiveShadow = true; itemGroup.add(mainBody);
+
+                    // Roof (pyramid shape)
+                    const roofGeo = new THREE.ConeGeometry(size * 1.2, size * 0.8, 4);
+                    const roofMat = new THREE.MeshStandardMaterial({ color: 0xA0522D, roughness: 0.7, transparent: true, opacity: 0 });
+                    const roof = new THREE.Mesh(roofGeo, roofMat);
+                    roof.rotation.y = Math.PI / 4; roof.position.y = size * 1.2;
+                    roof.castShadow = roof.receiveShadow = true; itemGroup.add(roof);
+
+                    // Door
+                    const doorGeo = new THREE.BoxGeometry(size * 0.3, size * 0.6, 0.05);
+                    const doorMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.6, transparent: true, opacity: 0 });
+                    const door = new THREE.Mesh(doorGeo, doorMat);
+                    door.position.set(0, -size * 0.3, size * 0.75); itemGroup.add(door);
+
+                    // Window
+                    const windowGeo = new THREE.PlaneGeometry(size * 0.4, size * 0.4);
+                    const windowMat = new THREE.MeshStandardMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.8 });
+                    const window = new THREE.Mesh(windowGeo, windowMat);
+                    window.position.set(size * 0.4, size * 0.2, size * 0.75); itemGroup.add(window);
+
+                    // Chimney (optional)
+                    if (Math.random() > 0.5) {
+                        const chimneyGeo = new THREE.BoxGeometry(size * 0.2, size * 0.5, size * 0.2);
+                        const chimneyMat = new THREE.MeshStandardMaterial({ color: 0x696969, roughness: 0.7, transparent: true, opacity: 0 });
+                        const chimney = new THREE.Mesh(chimneyGeo, chimneyMat);
+                        chimney.position.set(size * 0.6, size * 1.4, size * 0.5);
+                        chimney.castShadow = chimney.receiveShadow = true; itemGroup.add(chimney);
+                    }
+
+                    threeMesh = itemGroup;
+                    threeMesh.userData.size = size * 1.5;
+                    break;
+
+                case 'Mailbox':
+                    // Physics shapes for Mailbox
+                    physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.1, size * 0.1, size * 1.5, 8), offset: new CANNON.Vec3(0, size * 0.75, 0) }); // Post
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size * 0.4, size * 0.25, size * 0.25)), offset: new CANNON.Vec3(0, size * 1.5, 0) }); // Box
+                    
+                    itemGroup = new THREE.Group();
+
+                    // Post
+                    const postGeo = new THREE.CylinderGeometry(size * 0.1, size * 0.1, size * 1.5, 8);
+                    const post = new THREE.Mesh(postGeo, transparentMat);
+                    post.position.y = size * 0.75; itemGroup.add(post);
+
+                    // Box
+                    const boxGeo = new THREE.BoxGeometry(size * 0.8, size * 0.5, size * 0.5);
+                    const box = new THREE.Mesh(boxGeo, transparentMat.clone());
+                    box.position.y = size * 1.5; itemGroup.add(box);
+
+                    // Flag
+                    const flagGeo = new THREE.BoxGeometry(size * 0.05, size * 0.3, size * 0.1);
+                    const flagMat = new THREE.MeshStandardMaterial({ color: 0xFF0000, roughness: 0.6, transparent: true, opacity: 0 });
+                    const flag = new THREE.Mesh(flagGeo, flagMat);
+                    flag.position.set(size * 0.4, size * 1.6, 0); itemGroup.add(flag);
+
+                    threeMesh = itemGroup;
+                    threeMesh.userData.size = size * 1.5;
+                    break;
+
+                case 'Fire Hydrant':
+                    // Physics shapes for Fire Hydrant
+                    physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.4, size * 0.5, size * 0.3, 16), offset: new CANNON.Vec3(0, size * 0.15, 0) }); // Base
+                    physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.3, size * 0.3, size * 0.8, 16), offset: new CANNON.Vec3(0, size * 0.3 + size * 0.4, 0) }); // Middle
+                    physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.2, size * 0.2, size * 0.2, 16), offset: new CANNON.Vec3(0, size * 0.3 + size * 0.8 + size * 0.1, 0) }); // Top
+                    
+                    itemGroup = new THREE.Group();
+
+                    const baseGeo = new THREE.CylinderGeometry(size * 0.4, size * 0.5, size * 0.3, 16);
+                    const base = new THREE.Mesh(baseGeo, transparentMat);
+                    base.position.y = size * 0.15; itemGroup.add(base);
+
+                    const middleGeo = new THREE.CylinderGeometry(size * 0.3, size * 0.3, size * 0.8, 16);
+                    const middle = new THREE.Mesh(middleGeo, transparentMat.clone());
+                    middle.position.y = size * 0.3 + size * 0.4; itemGroup.add(middle);
+
+                    const topGeo = new THREE.CylinderGeometry(size * 0.2, size * 0.2, size * 0.2, 16);
+                    const topMat = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.6, transparent: true, opacity: 0 });
+                    const top = new THREE.Mesh(topGeo, topMat);
+                    top.position.y = size * 0.3 + size * 0.8 + size * 0.1; itemGroup.add(top);
+
+                    const nozzleGeo = new THREE.CylinderGeometry(size * 0.1, size * 0.1, size * 0.3, 8);
+                    const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.6, transparent: true, opacity: 0 });
+                    const nozzle1 = new THREE.Mesh(nozzleGeo, nozzleMat);
+                    nozzle1.rotation.z = Math.PI / 2; nozzle1.position.set(size * 0.3, size * 0.6, 0); itemGroup.add(nozzle1);
+                    const nozzle2 = new THREE.Mesh(nozzleGeo, nozzleMat);
+                    nozzle2.rotation.z = Math.PI / 2; nozzle2.position.set(-size * 0.3, size * 0.6, 0); itemGroup.add(nozzle2);
+
+                    threeMesh = itemGroup;
+                    threeMesh.userData.size = size * 1.5;
+                    break;
+
+                case 'Traffic Cone':
+                    const coneGeo = new THREE.ConeGeometry(size * 0.5, size * 1.5, 16);
+                    const coneMat = new THREE.MeshStandardMaterial({ color: 0xFFA500, roughness: 0.6, transparent: true, opacity: 0 });
+                    threeMesh = new THREE.Mesh(coneGeo, coneMat);
+                    threeMesh.userData.size = size * 1.5;
+                    physicsShapes.push({ shape: new CANNON.Cylinder(0, size * 0.5, size * 1.5, 16), offset: new CANNON.Vec3(0, size * 0.75, 0) });
+                    break;
+
+                case 'Hot Dog Stand':
+                    // Physics shapes for Hot Dog Stand
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size * 0.75, size * 0.4, size * 0.4)), offset: new CANNON.Vec3(0, size * 0.4, 0) }); // Cart body
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size * 0.9, size * 0.1, size * 0.5)), offset: new CANNON.Vec3(0, size * 1.1, 0) }); // Roof
+                    
+                    itemGroup = new THREE.Group();
+
+                    // Base cart
+                    const cartBodyGeo = new THREE.BoxGeometry(size * 1.5, size * 0.8, size * 0.8);
+                    const cartBody = new THREE.Mesh(cartBodyGeo, transparentMat);
+                    cartBody.position.y = size * 0.4; itemGroup.add(cartBody);
+
+                    // Roof
+                    const roofStandGeo = new THREE.BoxGeometry(size * 1.8, size * 0.2, size * 1);
+                    const roofStand = new THREE.Mesh(roofStandGeo, transparentMat.clone());
+                    roofStand.position.y = size * 1.1; itemGroup.add(roofStand);
+
+                    // Awning
+                    const awningGeo = new THREE.BoxGeometry(size * 1.8, size * 0.1, size * 0.3);
+                    const awningMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, roughness: 0.6, transparent: true, opacity: 0 });
+                    const awning = new THREE.Mesh(awningGeo, awningMat);
+                    awning.position.set(0, size * 1.2, size * 0.5); itemGroup.add(awning);
+
+                    // Wheels
+                    const standWheelGeo = new THREE.CylinderGeometry(size * 0.15, size * 0.15, size * 0.1, 16);
+                    const standWheelMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, transparent: true, opacity: 0 });
+                    const standWheel1 = new THREE.Mesh(standWheelGeo, standWheelMat);
+                    standWheel1.rotation.z = Math.PI / 2; standWheel1.position.set(size * 0.6, size * 0.1, size * 0.3); itemGroup.add(standWheel1);
+                    const standWheel2 = new THREE.Mesh(standWheelGeo, standWheelMat);
+                    standWheel2.rotation.z = Math.PI / 2; standWheel2.position.set(-size * 0.6, size * 0.1, size * 0.3); itemGroup.add(standWheel2);
+
+                    threeMesh = itemGroup;
+                    threeMesh.userData.size = size * 2;
+                    break;
+                
+                case 'Asteroid':
+                    const asteroidGeo = new THREE.IcosahedronGeometry(size, 0); // Low poly sphere
+                    const asteroidMat = new THREE.MeshStandardMaterial({ color: 0x696969, roughness: 0.9, flatShading: true, transparent: true, opacity: 0 });
+                    threeMesh = new THREE.Mesh(asteroidGeo, asteroidMat);
+                    threeMesh.userData.size = size * 2;
+                    physicsShapes.push({ shape: new CANNON.Sphere(size), offset: new CANNON.Vec3(0, 0, 0) });
+                    break;
+
+                case 'Satellite':
+                    // Physics shapes for Satellite
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size * 0.25, size * 0.25, size * 0.75)), offset: new CANNON.Vec3(0, 0, 0) }); // Main body
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size, 0.025, size * 0.4)), offset: new CANNON.Vec3(size * 1.25, 0, 0) }); // Panel 1
+                    physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size, 0.025, size * 0.4)), offset: new CANNON.Vec3(-size * 1.25, 0, 0) }); // Panel 2
+                    
+                    itemGroup = new THREE.Group();
+
+                    const mainSatBodyGeo = new THREE.BoxGeometry(size * 0.5, size * 0.5, size * 1.5);
+                    const mainSatBodyMat = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.5, transparent: true, opacity: 0 });
+                    const mainSatBody = new THREE.Mesh(mainSatBodyGeo, mainSatBodyMat);
+                    itemGroup.add(mainSatBody);
+
+                    const solarPanelGeo = new THREE.BoxGeometry(size * 2, 0.05, size * 0.8);
+                    const solarPanelMat = new THREE.MeshStandardMaterial({ color: 0x00008B, roughness: 0.2, metalness: 0.8, transparent: true, opacity: 0 });
+                    const panel1 = new THREE.Mesh(solarPanelGeo, solarPanelMat);
+                    panel1.position.x = size * 1.25; itemGroup.add(panel1);
+                    const panel2 = new THREE.Mesh(solarPanelGeo, solarPanelMat);
+                    panel2.position.x = -size * 1.25; itemGroup.add(panel2);
+
+                    threeMesh = itemGroup;
+                    threeMesh.userData.size = size * 2.5; // Larger effective size
+                    break;
+
+                case 'Space Debris':
+                    let debrisGeo;
+                    const debrisMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7, transparent: true, opacity: 0 });
+                    const debrisType = Math.random();
+                    if (debrisType < 0.3) { // Cube
+                        debrisGeo = new THREE.BoxGeometry(size, size, size);
+                        physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size * 0.5, size * 0.5, size * 0.5)), offset: new CANNON.Vec3(0, 0, 0) });
+                    } else if (debrisType < 0.6) { // Cylinder
+                        debrisGeo = new THREE.CylinderGeometry(size * 0.5, size * 0.5, size * 1.5, 8);
+                        physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.5, size * 0.5, size * 1.5, 8), offset: new CANNON.Vec3(0, 0, 0) });
+                    } else { // Fragment (random tetrahedron)
+                        debrisGeo = new THREE.TetrahedronGeometry(size, 0);
+                        physicsShapes.push({ shape: new CANNON.Sphere(size * 0.7), offset: new CANNON.Vec3(0, 0, 0) });
+                    }
+                    threeMesh = new THREE.Mesh(debrisGeo, debrisMat);
+                    threeMesh.userData.size = size;
+                    break;
+
+                case 'Comet Fragment':
+                    const cometGeo = new THREE.IcosahedronGeometry(size, 1); // Slightly more detailed
+                    const cometMat = new THREE.MeshStandardMaterial({ color: 0xADD8E6, roughness: 0.8, flatShading: true, transparent: true, opacity: 0 });
+                    threeMesh = new THREE.Mesh(cometGeo, cometMat);
+                    threeMesh.userData.size = size * 1.5;
+                    physicsShapes.push({ shape: new CANNON.Sphere(size), offset: new CANNON.Vec3(0, 0, 0) });
+                    break;
+
+                case 'Moon Rock':
+                    const moonRockGeo = new THREE.DodecahedronGeometry(size, 0); // Irregular shape
+                    const moonRockMat = new THREE.MeshStandardMaterial({ color: 0xA9A9A9, roughness: 0.9, flatShading: true, transparent: true, opacity: 0 });
+                    threeMesh = new THREE.Mesh(moonRockGeo, moonRockMat);
+                    threeMesh.userData.size = size * 1.2;
+                    physicsShapes.push({ shape: new CANNON.Sphere(size), offset: new CANNON.Vec3(0, 0, 0) });
+                    break;
+
+                case 'Star Dust Cluster':
+                    itemGroup = new THREE.Group();
+                    const particleMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.8 });
+                    for (let j = 0; j < 10; j++) {
+                        const particleGeo = new THREE.SphereGeometry(size * 0.2, 8, 8);
+                        const particle = new THREE.Mesh(particleGeo, particleMat);
+                        particle.position.set(
+                            (Math.random() - 0.5) * size,
+                            (Math.random() - 0.5) * size,
+                            (Math.random() - 0.5) * size
+                        );
+                        itemGroup.add(particle);
+                    }
+                    threeMesh = itemGroup;
+                    threeMesh.userData.size = size * 2;
+                    physicsShapes.push({ shape: new CANNON.Sphere(size), offset: new CANNON.Vec3(0, 0, 0) });
+                    break;
+
+                default: // Generic items (Rock, Bush, Bench, Lamp Post, Trash Can)
+                    let geo;
+                    switch (itemName) {
+                        case 'Rock':
+                            geo = new THREE.SphereGeometry(size * 0.7, 16, 16);
+                            physicsShapes.push({ shape: new CANNON.Sphere(size * 0.7), offset: new CANNON.Vec3(0, 0, 0) }); break;
+                        case 'Bush':
+                            geo = new THREE.SphereGeometry(size * 0.8, 24, 24);
+                            physicsShapes.push({ shape: new CANNON.Sphere(size * 0.8), offset: new CANNON.Vec3(0, 0, 0) }); break;
+                        case 'Bench':
+                            geo = new THREE.BoxGeometry(size * 2, size * 0.5, size * 0.5);
+                            physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size, size * 0.25, size * 0.25)), offset: new CANNON.Vec3(0, 0, 0) }); break;
+                        case 'Lamp Post':
+                            geo = new THREE.CylinderGeometry(size * 0.1, size * 0.1, size * 3, 16);
+                            physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.1, size * 0.1, size * 3, 16), offset: new CANNON.Vec3(0, size * 1.5, 0) }); break;
+                        case 'Trash Can':
+                            geo = new THREE.CylinderGeometry(size * 0.4, size * 0.5, size * 1.2, 24);
+                            physicsShapes.push({ shape: new CANNON.Cylinder(size * 0.4, size * 0.5, size * 1.2, 24), offset: new CANNON.Vec3(0, size * 0.6, 0) }); break;
+                        default: // Fallback, should not be hit if itemNames are well-defined
+                            geo = new THREE.BoxGeometry(size, size, size);
+                            physicsShapes.push({ shape: new CANNON.Box(new CANNON.Vec3(size * 0.5, size * 0.5, size * 0.5)), offset: new CANNON.Vec3(0, 0, 0) });
+                    }
+                    const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6, transparent: true, opacity: 0 });
+                    threeMesh = new THREE.Mesh(geo, mat);
+                    threeMesh.castShadow = threeMesh.receiveShadow = true;
+                    threeMesh.userData.size = size;
+                    break;
+            }
+            threeMesh.userData.physicsShapes = physicsShapes; // Store the Cannon.js shapes for later use
+            return threeMesh;
+        }
+
+        // Modified createCollectibleItems to use object pooling
+        function createCollectibleItems(count, itemNames, centerPosition = new THREE.Vector3(0,0,0), spawnRadius = 100) {
+            console.log(`createCollectibleItems: Attempting to create ${count} items.`);
+            const itemColors = [0xFF6347, 0x6A5ACD, 0x3CB371, 0xFFD700, 0xBA55D3, 0x4682B4, 0xD2B48C, 0xFFA07A, 0x20B2AA, 0xFF69B4];
+            for (let i = 0; i < count; i++) {
+                const itemName = itemNames[Math.floor(Math.random() * itemNames.length)];
+                const color = itemColors[Math.floor(Math.random() * itemColors.length)];
+                const size = Math.random() * 1.5 + 0.5; // Random size for the item
+
+                const threeMesh = getItemFromPool(itemName, color, size); // Get item from pool or create new
+                // No longer directly retrieve cannonShape, but physicsShapes array
+
+                // --- Procedural Generation Position Logic (Outside Frustum) ---
+                const maxAttempts = 50;
+                let positionFound = false;
+                let currentX, currentZ;
+                let attempts = 0;
+
+                while (!positionFound && attempts < maxAttempts) {
+                    currentX = centerPosition.x + (Math.random() - 0.5) * spawnRadius * 2;
+                    currentZ = centerPosition.z + (Math.random() - 0.5) * spawnRadius * 2;
+
+                    // Clamp positions to stay within map boundaries
+                    currentX = THREE.MathUtils.clamp(currentX, -mapBoundary, mapBoundary);
+                    currentZ = THREE.MathUtils.clamp(currentZ, -mapBoundary, mapBoundary);
+
+                    // Create a temporary sphere for visibility check
+                    const tempSphere = new THREE.Sphere(new THREE.Vector3(currentX, threeMesh.userData.size / 2, currentZ), threeMesh.userData.size / 2);
+
+                    // Check if the temporary sphere intersects with the camera's frustum
+                    if (!frustum.intersectsSphere(tempSphere)) {
+                        positionFound = true;
+                    }
+                    attempts++;
+                }
+                
+                const yPos = threeMesh.userData.size / 2; // Place on ground
+                threeMesh.position.set(currentX, yPos, currentZ);
+                threeMesh.rotation.set(0, Math.random() * Math.PI * 2, 0);
+                scene.add(threeMesh);
+                itemsToCollect.push(threeMesh);
+
+                // Add fade-in properties (re-applied even for pooled items)
+                threeMesh.userData.fadeStartTime = Date.now();
+                threeMesh.userData.isFadingIn = true;
+
+
+                // Create Cannon.js body for the item
+                const itemBody = new CANNON.Body({ mass: threeMesh.userData.size * 5 }); // Mass is still based on size
+                // Add all physics shapes to the body
+                for (const ps of threeMesh.userData.physicsShapes) {
+                    itemBody.addShape(ps.shape, ps.offset || new CANNON.Vec3(), ps.orientation || new CANNON.Quaternion());
+                }
+
+                itemBody.position.set(currentX, yPos, currentZ); // Use the final position
+                itemBody.quaternion.copy(threeMesh.quaternion);
+                itemBody.userData = { threeMesh: threeMesh }; 
+                world.addBody(itemBody); // Use world.addBody for cannon-es
+                physicsBodies.push(itemBody);
+            }
+            console.log(`createCollectibleItems: Finished creating ${count} items.`);
+        }
+
+        function resetKatamariPosition() {
+            console.log("Resetting Katamari position...");
+            if (katamariBody) {
+                katamariBody.position.set(0, katamariRadius, 0);
+                katamariBody.velocity.set(0,0,0);
+                katamariBody.angularVelocity.set(0,0,0);
+                katamari.position.copy(katamariBody.position);
+                katamari.quaternion.copy(katamariBody.quaternion);
+                lastGenerationPosition.copy(katamari.position); // Reset generation position on reset
+                console.log("Katamari position reset to (0,0,0).");
+            } else {
+                console.warn("resetKatamariPosition: katamariBody is not defined.");
+            }
+        }
+
+        function onWindowResize() {
+            console.log("Window resized. Updating camera and renderer size.");
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isGeneratingLevel || !katamari || !world) {
+                if (renderer && scene && camera) {
+                    renderer.render(scene, camera);
+                }
+                return;
+            }
+
+            const deltaTime = clock.getDelta();
+            
+            // Update frustum for visibility checks
+            camera.updateMatrixWorld(); // Ensure camera's world matrix is up-to-date
+            frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+
+            // Manage physics body sleeping/waking based on distance and frustum visibility
+            for (const body of physicsBodies) {
+                if (body.userData && body.userData.threeMesh) {
+                    const itemThreeMesh = body.userData.threeMesh; 
+                    const distanceToKatamari = katamari.position.distanceTo(itemThreeMesh.position);
+                    
+                    // Create a temporary sphere for frustum check based on item's size and position
+                    const itemBoundingSphere = new THREE.Sphere(itemThreeMesh.position, itemThreeMesh.userData.size / 2);
+                    const isInFrustum = frustum.intersectsSphere(itemBoundingSphere);
+
+                    if (distanceToKatamari < physicsActiveDistance || isInFrustum) {
+                        // If close to Katamari or in view, ensure physics body is awake
+                        if (body.sleepState === CANNON.Body.SLEEPING) {
+                            body.wakeUp();
+                        }
+                    } else {
+                        // If far and not in view, put physics body to sleep
+                        if (body.sleepState === CANNON.Body.AWAKE) {
+                            body.sleep();
+                        }
+                    }
+                }
+            }
+
+            // Update physics world
+            try {
+                world.step(timeStep, deltaTime);
+            } catch (e) {
+                console.error("Error during world.step:", e);
+                // Continue rendering even if physics step fails for items
+                renderer.render(scene, camera);
+                return;
+            }
+
+            // Sync Three.js Katamari with physics body
+            katamari.position.copy(katamariBody.position);
+            katamari.quaternion.copy(katamariBody.quaternion);
+
+            // Sync Three.js item meshes with their Cannon.js bodies
+            for (const body of physicsBodies) {
+                if (body.userData && body.userData.threeMesh) {
+                    // Only update visual mesh if physics body is awake or has recently moved
+                    if (body.sleepState === CANNON.Body.AWAKE || body.velocity.length() > 0.01 || body.angularVelocity.length() > 0.01) {
+                         body.userData.threeMesh.position.copy(body.position);
+                         body.userData.threeMesh.quaternion.copy(body.quaternion);
+                    }
+                }
+            }
+
+            // Handle item fade-in (for newly created items)
+            for (const item of itemsToCollect) {
+                if (item.userData.isFadingIn) {
+                    const elapsed = Date.now() - item.userData.fadeStartTime;
+                    const progress = Math.min(1, elapsed / itemFadeDuration);
+
+                    if (item.isGroup) { // If it's a group, iterate through its meshes
+                        item.traverse(function (object) {
+                            if (object.isMesh && object.material.transparent) {
+                                object.material.opacity = progress;
+                            }
+                        });
+                    } else if (item.isMesh && item.material.transparent) { // If it's a single mesh
+                        item.material.opacity = progress;
+                    }
+
+                    if (progress === 1) {
+                        item.userData.isFadingIn = false;
+                        // Once fully faded in, make material opaque to potentially optimize rendering
+                        item.traverse(function (object) {
+                            if (object.isMesh && object.material.transparent) {
+                                object.material.transparent = false;
+                            }
+                        });
+                    }
+                }
+            }
+
+            // Calculate movement direction relative to camera
+            const cameraDirection = new THREE.Vector3();
+            camera.getWorldDirection(cameraDirection);
+            cameraDirection.y = 0;
+            cameraDirection.normalize();
+
+            const rightDirection = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), cameraDirection).normalize();
+
+            let desiredVelocity = new CANNON.Vec3(0,0,0); // Use a Cannon.js vector for desired velocity
+            let isMovingInput = false; // Track if there's *any* directional input
+
+            // Determine desired velocity based on keyboard input
+            if (keys['w'] || keys['arrowup']) {
+                desiredVelocity.x += cameraDirection.x * moveSpeed;
+                desiredVelocity.z += cameraDirection.z * moveSpeed;
+                isMovingInput = true;
+            }
+            if (keys['s'] || keys['arrowdown']) {
+                desiredVelocity.x -= cameraDirection.x * moveSpeed;
+                desiredVelocity.z -= cameraDirection.z * moveSpeed;
+                isMovingInput = true;
+            }
+            if (keys['a'] || keys['arrowleft']) {
+                desiredVelocity.x -= rightDirection.x * moveSpeed;
+                desiredVelocity.z -= rightDirection.z * moveSpeed;
+                isMovingInput = true;
+            }
+            if (keys['d'] || keys['arrowright']) {
+                desiredVelocity.x += rightDirection.x * moveSpeed;
+                desiredVelocity.z += rightDirection.z * moveSpeed;
+                isMovingInput = true;
+            }
+
+            // Determine desired velocity based on touch input
+            if (touchInput.active) {
+                const deltaX = touchInput.currentX - touchInput.startX;
+                const deltaY = touchInput.currentY - touchInput.startY;
+
+                const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                if (length > touchDeadZone) { // Apply movement only if outside dead zone
+                    const normalizedDeltaX = deltaX / length;
+                    const normalizedDeltaY = deltaY / length;
+
+                    // Map touch X to right/left, touch Y to forward/backward relative to camera
+                    desiredVelocity.x += (cameraDirection.x * normalizedDeltaY - rightDirection.x * normalizedDeltaX) * moveSpeed * touchSensitivity;
+                    desiredVelocity.z += (cameraDirection.z * normalizedDeltaY - rightDirection.z * normalizedDeltaX) * moveSpeed * touchSensitivity;
+                    isMovingInput = true;
+                }
+            }
+
+            // Apply desired velocity if there's input, otherwise let damping handle it
+            if (isMovingInput) {
+                // Directly set the velocity for immediate response
+                // Keep the current Y velocity to allow for gravity/bouncing
+                katamariBody.velocity.set(desiredVelocity.x, katamariBody.velocity.y, desiredVelocity.z);
+            }
+            // If no input, the linearDamping will naturally slow it down.
+
+
+            // Calculate rolling rotation based on actual current velocity
+            const currentVelocityLength = katamariBody.velocity.length();
+            if (currentVelocityLength > 0.1) { // Only apply rolling if there's significant movement
+                const up = new CANNON.Vec3(0,1,0);
+                const targetAngularVelocity = new CANNON.Vec3();
+                // Calculate the desired angular velocity for rolling
+                katamariBody.velocity.cross(up, targetAngularVelocity);
+                targetAngularVelocity.scale(1 / katamariRadius, targetAngularVelocity);
+
+                // Smoothly interpolate the actual angular velocity towards the target
+                const interpolationFactor = THREE.MathUtils.lerp(0.5, 0.1, Math.min(1, currentVelocityLength / 5));
+                katamariBody.angularVelocity.x = THREE.MathUtils.lerp(katamariBody.angularVelocity.x, targetAngularVelocity.x, interpolationFactor);
+                katamariBody.angularVelocity.y = THREE.MathUtils.lerp(katamariBody.angularVelocity.y, targetAngularVelocity.y, interpolationFactor);
+                katamariBody.angularVelocity.z = THREE.MathUtils.lerp(katamariBody.angularVelocity.z, targetAngularVelocity.z, interpolationFactor);
+                
+                playRollingSound(currentVelocityLength);
+            } else {
+                // If velocity is very low, stop rolling sound and smoothly bring angular velocity to zero
+                stopRollingSound();
+                katamariBody.angularVelocity.x = THREE.MathUtils.lerp(katamariBody.angularVelocity.x, 0, 0.1);
+                katamariBody.angularVelocity.y = THREE.MathUtils.lerp(katamariBody.angularVelocity.y, 0, 0.1);
+                katamariBody.angularVelocity.z = THREE.MathUtils.lerp(katamariBody.angularVelocity.z, 0, 0.1);
+            }
+
+            // Smooth out the speed for camera FOV (use actual physics velocity)
+            smoothedSpeed = THREE.MathUtils.lerp(smoothedSpeed, currentVelocityLength, 0.1);
+
+            // Clamp Katamari position to stay within bounds
+            katamariBody.position.x = THREE.MathUtils.clamp(katamariBody.position.x, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
+            katamariBody.position.z = THREE.MathUtils.clamp(katamariBody.position.z, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
+            katamariBody.position.y = katamariRadius; // Keep it on the ground
+            // Also update the Three.js Katamari position to match the clamped physics body position
+            katamari.position.copy(katamariBody.position);
+
+
+            checkCollisions(); // Check for collisions with items
+            checkMountainCollisions(); // Check for collisions with mountains
+
+            // Dynamic item generation based on travel distance
+            if (katamari.position.distanceTo(lastGenerationPosition) > generationDistanceThreshold) {
+                console.log("Generating new items due to travel distance.");
+                createCollectibleItems(50, currentTheme.items, katamari.position, 150); // Generate 50 items around current position, in a 150 unit radius (reduced count)
+                lastGenerationPosition.copy(katamari.position); // Update last generation position
+            }
+
+            // Clean up old items that are too far away
+            cleanupOldItems();
+
+            updateCamera(smoothedSpeed); // Pass smoothedSpeed to updateCamera
+            renderer.render(scene, camera); // Render the scene
+
+            // Update UI elements
+            katamariSizeUI.textContent = `${katamariRadius.toFixed(2)}m`;
+            katamariSpeedUI.textContent = `${smoothedSpeed.toFixed(2)}m/s`;
+            progressBar.style.width = `${Math.min(100, (katamariRadius / targetKatamariSize) * 100)}%`;
+
+            // Check for win condition
+            if (katamariRadius >= targetKatamariSize && messageOverlay.style.display === 'none') {
+                messageOverlay.textContent = `LEVEL ${currentLevel} COMPLETE! You've grown a magnificent Katamari! Click to continue.`;
+                messageOverlay.style.display = 'block';
+                stopRollingSound();
+                currentLevel++; // Advance level for next game
+                console.log(`Level ${currentLevel - 1} completed! New target size: ${targetKatamariSize.toFixed(2)}m`);
+            }
+        }
+        
+        // --- CLEANUP OLD ITEMS (Modified to use object pooling) ---
+        function cleanupOldItems() {
+            for (let i = itemsToCollect.length - 1; i >= 0; i--) {
+                const itemThreeMesh = itemsToCollect[i];
+                if (katamari.position.distanceTo(itemThreeMesh.position) > cleanupDistanceThreshold) {
+                    const itemCannonBody = physicsBodies.find(body => body.userData?.threeMesh === itemThreeMesh);
+                    if (itemCannonBody) {
+                        world.removeBody(itemCannonBody);
+                        physicsBodies.splice(physicsBodies.indexOf(itemCannonBody), 1); // Remove from physicsBodies
+                    }
+                    scene.remove(itemThreeMesh);
+                    itemsToCollect.splice(i, 1); // Remove from active list
+                    returnItemToPool(itemThreeMesh); // Return to pool instead of disposing
+                }
+            }
+        }
+
+        // --- COLLISION DETECTION (Three.js based for Katamari-Item) ---
+        function checkCollisions() {
+            const katamariSphere = new THREE.Sphere(katamari.position, katamariRadius);
+
+            for (let i = itemsToCollect.length - 1; i >= 0; i--) {
+                const itemThreeMesh = itemsToCollect[i];
+                const itemCannonBody = physicsBodies.find(body => body.userData?.threeMesh === itemThreeMesh);
+
+                if (!itemCannonBody) continue;
+
+                const itemSphere = new THREE.Sphere(itemThreeMesh.position, itemThreeMesh.userData.size / 2);
+
+                const distance = katamariSphere.center.distanceTo(itemSphere.center);
+                const combinedRadius = katamariSphere.radius + itemSphere.radius;
+
+                if (distance < combinedRadius && itemThreeMesh.userData.size < katamariRadius * 1.5) {
+                    console.log(`Collecting item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
+                    attachItem(itemThreeMesh, itemCannonBody);
+                    playCollectionSound();
+                }
+            }
+        }
+
+        // New collision function for mountains
+        function checkMountainCollisions() {
+            const currentTime = Date.now();
+
+            for (const mountain of mountains) {
+                const mountainCenterThree = mountain.position.clone();
+                mountainCenterThree.y = katamariBody.position.y;
+
+                const mountainCenterCannon = new CANNON.Vec3(mountainCenterThree.x, mountainCenterThree.y, mountainCenterThree.z);
+
+                const distance = katamariBody.position.distanceTo(mountainCenterCannon);
+                const mountainRadius = mountain.userData.size;
+
+                const combinedRadius = katamariRadius + mountainRadius;
+
+                if (katamariRadius < mountain.userData.minSizeToPass && distance < combinedRadius) {
+                    const overlap = combinedRadius - distance;
+
+                    if (overlap > 0) {
+                        console.log("Collision with mountain! Katamari too small to pass.");
+                        shedSound.triggerAttackRelease("C2", "8n");
+
+                        const collisionNormal = new CANNON.Vec3();
+                        katamariBody.position.vsub(mountainCenterCannon, collisionNormal); 
+                        collisionNormal.normalize();
+                        
+                        const impulseStrength = moveSpeed * 8;
+                        const impulse = new CANNON.Vec3();
+                        
+                        collisionNormal.scale(impulseStrength, impulse); 
+                        katamariBody.velocity.x += impulse.x;
+                        katamariBody.velocity.z += impulse.z;
+
+                        const upwardImpulse = 15;
+                        katamariBody.velocity.y += upwardImpulse;
+
+
+                        if (currentTime - lastShedTime > shedCooldown) {
+                            shedItems(Math.floor(Math.random() * 3) + 1);
+                            lastShedTime = currentTime;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Function to update Katamari's physics properties (mass and shape)
+        function updateKatamariPhysics() {
+            // Update shape
+            // Dispose of old shape if it's not the initial one, though Cannon.js handles this internally when replacing
+            const newShape = new CANNON.Sphere(katamariRadius);
+            katamariBody.shapes = [newShape]; // Replace the old shape with the new one
+            katamariBody.shapeOffsets = [new CANNON.Vec3(0, 0, 0)]; // Reset offset if needed
+            katamariBody.shapeOrientations = [new CANNON.Quaternion(0, 0, 0, 1)]; // Reset orientation if needed
+            
+            // Update mass properties: mass = k * radius^3. Here k = 100 / (2^3) = 12.5
+            // So, mass = 12.5 * radius^3
+            katamariBody.mass = 12.5 * Math.pow(katamariRadius, 3);
+            katamariBody.updateMassProperties(); // Recalculate inertia and other properties
+            console.log(`Katamari physics updated: Radius=${katamariRadius.toFixed(2)}m, Mass=${katamariBody.mass.toFixed(2)}kg`);
+        }
+
+        // New helper function to encapsulate Katamari size updates
+        function updateKatamariVisualsAndPhysics() {
+            const coreBall = katamari.getObjectByName('core');
+            if (coreBall) {
+                // Dispose old geometry before creating a new one
+                if (coreBall.geometry) {
+                    coreBall.geometry.dispose();
+                }
+                coreBall.geometry = new THREE.SphereGeometry(katamariRadius, 32, 32);
+            }
+            // Update Katamari's physics body mass and shape
+            updateKatamariPhysics();
+
+            // Also update Katamari body position to ensure it's on the ground if it shrunk significantly
+            katamariBody.position.y = katamariRadius;
+            katamari.position.y = katamariRadius;
+            console.log(`Katamari visual radius updated to: ${katamariRadius.toFixed(2)}m`);
+        }
+
+        // New function to shed items from the Katamari (Modified for pooling)
+        function shedItems(numToShed) {
+            console.log(`Attempting to shed ${numToShed} items.`);
+            const attachedItems = katamari.children.filter(child => child.name !== 'core');
+            if (attachedItems.length === 0) {
+                console.log("No items to shed.");
+                return;
+            }
+
+            attachedItems.sort(() => 0.5 - Math.random());
+            const itemsToActuallyShed = Math.min(numToShed, attachedItems.length);
+            console.log(`Actually shedding ${itemsToActuallyShed} items.`);
+
+            for (let i = 0; i < itemsToActuallyShed; i++) {
+                const itemThreeMesh = attachedItems[i];
+                
+                const worldPosition = new THREE.Vector3();
+                itemThreeMesh.getWorldPosition(worldPosition);
+                const worldQuaternion = new THREE.Quaternion();
+                itemThreeMesh.getWorldQuaternion(worldQuaternion);
+
+                katamari.remove(itemThreeMesh);
+                scene.add(itemThreeMesh);
+                console.log(`Shed item '${itemThreeMesh.userData.size.toFixed(2)}m' detached from Katamari.`);
+
+                itemThreeMesh.traverse(function (object) {
+                    if (object.isMesh) {
+                        object.material.opacity = 1;
+                        object.material.transparent = false;
+                    }
+                });
+                itemThreeMesh.userData.isFadingIn = false;
+                itemThreeMesh.userData.fadeStartTime = 0;
+
+                const shedItemSize = itemThreeMesh.userData.size;
+                // Retrieve the original shapes array
+                const shedPhysicsShapes = itemThreeMesh.userData.physicsShapes; 
+                const shedItemBody = new CANNON.Body({ mass: shedItemSize * 5 });
+                // Add all physics shapes to the body
+                for (const ps of shedPhysicsShapes) {
+                    shedItemBody.addShape(ps.shape, ps.offset || new CANNON.Vec3(), ps.orientation || new CANNON.Quaternion());
+                }
+
+                shedItemBody.position.copy(worldPosition);
+                shedItemBody.quaternion.copy(worldQuaternion);
+                shedItemBody.userData = { threeMesh: itemThreeMesh };
+                world.addBody(shedItemBody);
+                physicsBodies.push(shedItemBody);
+                console.log("Shed item re-added to physics world.");
+
+                const impulseDirection = new CANNON.Vec3();
+                shedItemBody.position.vsub(katamariBody.position, impulseDirection);
+                impulseDirection.normalize();
+                impulseDirection.scale(20, impulseDirection);
+                shedItemBody.applyImpulse(impulseDirection, shedItemBody.position);
+                console.log("Applied impulse to shed item.");
+
+                katamariRadius -= shedItemSize * 0.05;
+                katamariRadius = Math.max(2, katamariRadius);
+
+                itemsCollectedCount--;
+                itemsCollectedUI.textContent = itemsCollectedCount;
+                updateKatamariVisualsAndPhysics(); 
+            }
+            console.log("Finished shedding items.");
+        }
+
+        // --- AUDIO FUNCTIONS ---
+        function playRollingSound(speed) {
+            if (Tone.context.state !== 'running') {
+                Tone.start();
+            }
+            if (rollingSynth.state === 'stopped' || rollingSynth.state === 'idle') {
+                rollingSynth.triggerAttack(Tone.context.now());
+            }
+            const maxSpeed = 20;
+            const normalizedSpeed = Math.min(1, speed / maxSpeed);
+            const minVolumeDb = -40;
+            const maxVolumeDb = -10;
+            rollingSynth.volume.value = THREE.MathUtils.lerp(minVolumeDb, maxVolumeDb, normalizedSpeed);
+            rollingSynth.noise.playbackRate = 0.5 + normalizedSpeed * 1.5;
+        }
+
+        function stopRollingSound() {
+            if (rollingSynth.state === 'started') {
+                rollingSynth.triggerRelease(Tone.context.now());
+            }
+        }
+
+        function playCollectionSound() {
+            if (Tone.context.state !== 'running') {
+                Tone.start();
+            }
+            const now = Tone.context.now();
+            if (now - lastCollectionSoundTime > collectionSoundCooldown) {
+                collectionSynth.triggerAttackRelease("C5", "8n", now);
+                lastCollectionSoundTime = now;
+            }
+        }
+
+        function attachItem(itemThreeMesh, itemCannonBody) {
+            console.log(`Attaching item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
+            // Remove from Cannon.js world
+            world.removeBody(itemCannonBody);
+            physicsBodies.splice(physicsBodies.indexOf(itemCannonBody), 1);
+            console.log("Item removed from physics world.");
+
+            // Remove from Three.js items to collect list
+            itemsToCollect.splice(itemsToCollect.indexOf(itemThreeMesh), 1);
+            console.log("Item removed from itemsToCollect array.");
+
+            // Increment collected items count and update UI
+            itemsCollectedCount++;
+            itemsCollectedUI.textContent = itemsCollectedCount;
+            console.log(`Items collected: ${itemsCollectedCount}`);
+
+            // Calculate position on Katamari surface
+            const itemWorldPosition = new THREE.Vector3();
+            itemThreeMesh.getWorldPosition(itemWorldPosition);
+            const katamariWorldPosition = new THREE.Vector3();
+            katamari.getWorldPosition(katamariWorldPosition);
+
+            const directionFromKatamari = new THREE.Vector3().subVectors(itemWorldPosition, katamariWorldPosition).normalize();
+            
+            // Attach item to Katamari's Three.js group
+            katamari.attach(itemThreeMesh);
+            console.log("Item attached to Katamari Three.js group.");
+
+            // Position item on the surface of the Katamari
+            const newLocalPosition = directionFromKatamari.multiplyScalar(katamariRadius);
+            itemThreeMesh.position.copy(newLocalPosition);
+
+            // Orient the item to face outwards from the Katamari, with a random rotation around its axis
+            const targetQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), directionFromKatamari);
+            const randomRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI * 2);
+            targetQuaternion.multiply(randomRotation);
+
+            // Convert world quaternion to local quaternion relative to Katamari
+            const katamariWorldQuaternion = new THREE.Quaternion();
+            katamari.getWorldQuaternion(katamariWorldQuaternion);
+            const katamariWorldQuaternionInverse = katamariWorldQuaternion.clone().invert();
+            const newLocalQuaternion = katamariWorldQuaternionInverse.multiply(targetQuaternion);
+            itemThreeMesh.quaternion.copy(newLocalQuaternion);
+            console.log("Item positioned and oriented on Katamari surface.");
+
+            growKatamari(itemThreeMesh.userData.size); // Grow Katamari based on item size
+            console.log("Katamari growth initiated.");
+        }
+
+        function growKatamari(itemSize) {
+            const growthFactor = 0.05; // How much collecting an item contributes to growth
+            katamariRadius += itemSize * growthFactor;
+
+            // Update Katamari's visual geometry and physics body
+            updateKatamariVisualsAndPhysics();
+        }
+
+        function updateCamera(currentSpeed) { // Now receives smoothedSpeed
+            // Calculate desired camera position relative to Katamari
+            const desiredOffset = new THREE.Vector3(0, 10 + katamariRadius * 1.5, 15 + katamariRadius * 2.5);
+            const desiredPosition = katamari.position.clone().add(desiredOffset);
+
+            // Smoothly interpolate camera position
+            camera.position.lerp(desiredPosition, 0.05);
+            camera.lookAt(katamari.position); // Always look at the Katamari
+
+            // Adjust FOV based on smoothed speed for a sense of motion blur/speed
+            const maxFov = 90, minFov = 70, speedThreshold = 20;
+            const fov = THREE.MathUtils.lerp(minFov, maxFov, Math.min(1, currentSpeed / speedThreshold));
+            camera.fov = fov;
+            camera.updateProjectionMatrix();
+        }
+
+        // Initialize the game when the window loads
+        window.onload = function() {
+            init();
+        }
+    </script>
+</body>
+</html>
