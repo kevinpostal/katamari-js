@@ -1577,15 +1577,8 @@
             // Smoothly interpolate camera position
             camera.position.lerp(desiredPosition, 0.05);
             
-            // Calculate a target look-at point slightly ahead based on Katamari's forward movement
-            const lookAtOffsetFactor = 0.5; // How much to look ahead
-            const lookAtTarget = katamari.position.clone();
-            const forwardVector = new THREE.Vector3();
-            // Get Katamari's current forward direction based on its velocity
-            const currentKatamariVelocity = new THREE.Vector3(katamariBody.velocity.x, 0, katamariBody.velocity.z).normalize();
-            lookAtTarget.addScaledVector(currentKatamariVelocity, currentSpeed * lookAtOffsetFactor * 0.1); 
-
-            camera.lookAt(lookAtTarget); // Look at the slightly offset point
+            // Revert to looking directly at the Katamari's position
+            camera.lookAt(katamari.position); 
 
             // Adjust FOV based on smoothed speed for a sense of motion blur/speed
             const maxFov = 90, minFov = 70, speedThreshold = 20;
