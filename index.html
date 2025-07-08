@@ -108,6 +108,27 @@
             z-index: 10;
             text-align: center;
         }
+        #gyro-button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 10px;
+            transition: background-color 0.2s ease;
+            display: none; /* Hidden by default, shown only on mobile */
+        }
+        #gyro-button:hover {
+            background-color: #0056b3;
+        }
+        #gyro-button.active {
+            background-color: #28a745;
+        }
+        #gyro-button.active:hover {
+            background-color: #218838;
+        }
     </style>
 </head>
 <body>
@@ -120,6 +141,7 @@
             <div id="progress-bar"></div>
         </div>
         <div>Target Size: <span id="target-size">100.00m</span></div>
+        <button id="gyro-button">Toggle Gyro</button>
     </div>
     <div id="controls-info">
         <p>Use <b>W, A, S, D</b> or <b>Arrow Keys</b> to move the Katamari.</p>
@@ -185,9 +207,14 @@
             currentY: 0,
             active: false
         };
+        // Make touch deadzone screen-size relative
+        const touchDeadZone = Math.min(30, window.innerWidth * 0.05); 
         const touchSensitivity = 0.5; // Adjust this value to change touch responsiveness
-        const touchDeadZone = 20; // Pixels for a touch dead zone
 
+        // --- Gyroscope Variables ---
+        let useGyroscope = false;
+        let gyro = { alpha: 0, beta: 0, gamma: 0 }; // Store latest gyro data
+        const gyroSensitivity = 0.3; // Adjust for more/less sensitive gyro controls
 
         // --- UI ELEMENTS ---
         const katamariSizeUI = document.getElementById('katamari-size');
@@ -197,6 +224,7 @@
         const targetSizeUI = document.getElementById('target-size');
         const messageOverlay = document.getElementById('message-overlay');
         const loadingOverlay = document.getElementById('loading-overlay');
+        const gyroButton = document.getElementById('gyro-button');
 
 
         // --- INIT ---
@@ -283,6 +311,12 @@
             renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
             renderer.domElement.addEventListener('touchend', onTouchEnd);
 
+            // Gyroscope button listener
+            gyroButton.addEventListener('click', toggleGyroscope);
+
+            // Set up gyroscope button visibility
+            setupGyroButtonVisibility();
+
             window.addEventListener('resize', onWindowResize);
             messageOverlay.addEventListener('click', generateNewLevel); // Click to restart/next level
 
@@ -319,6 +353,67 @@
             touchInput.startY = 0;
             touchInput.currentX = 0;
             touchInput.currentY = 0;
+        }
+
+        // --- Gyroscope Control ---
+        function handleDeviceOrientation(event) {
+            // gamma: -90 to +90 (front-to-back tilt)
+            // beta: -180 to +180 (left-to-right tilt)
+            // alpha: 0 to 360 (compass direction) - not used for movement
+            gyro.gamma = event.gamma;
+            gyro.beta = event.beta;
+        }
+
+        function toggleGyroscope() {
+            if (useGyroscope) {
+                // Turn off gyroscope
+                window.removeEventListener('deviceorientation', handleDeviceOrientation);
+                useGyroscope = false;
+                gyroButton.classList.remove('active');
+                gyroButton.textContent = 'Toggle Gyro';
+                console.log("Gyroscope controls OFF");
+            } else {
+                // Request permission for iOS 13+
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                window.addEventListener('deviceorientation', handleDeviceOrientation);
+                                useGyroscope = true;
+                                gyroButton.classList.add('active');
+                                gyroButton.textContent = 'Gyro ON';
+                                console.log("Gyroscope controls ON (permission granted)");
+                            } else {
+                                console.warn("Permission for device orientation denied.");
+                                alert("Permission for gyroscope was denied. Please allow motion and orientation access in your device settings for gyroscope controls.");
+                            }
+                        })
+                        .catch(error => {
+                            console.error("Error requesting device orientation permission:", error);
+                            alert("Could not enable gyroscope. Ensure your device supports it and allows motion and orientation access.");
+                        });
+                } else {
+                    // For non-iOS 13+ devices, just add the listener
+                    window.addEventListener('deviceorientation', handleDeviceOrientation);
+                    useGyroscope = true;
+                    gyroButton.classList.add('active');
+                    gyroButton.textContent = 'Gyro ON';
+                    console.log("Gyroscope controls ON (no permission needed)");
+                }
+            }
+        }
+
+        // Function to determine if on a mobile device and show/hide gyro button
+        function setupGyroButtonVisibility() {
+            // Check for touch capability OR DeviceOrientationEvent support
+            if (window.matchMedia("(pointer: coarse)").matches || (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) {
+                gyroButton.style.display = 'block';
+            } else if (window.DeviceOrientationEvent) { // For non-iOS devices that support DeviceOrientationEvent without permission
+                gyroButton.style.display = 'block';
+            }
+            else {
+                gyroButton.style.display = 'none';
+            }
         }
 
 
@@ -580,7 +675,11 @@
             const itemColors = [0xFF6347, 0x6A5ACD, 0x3CB371, 0xFFD700, 0xBA55D3, 0x4682B4, 0xD2B48C, 0xFFA07A, 0x20B2AA, 0xFF69B4];
             for (let i = 0; i < count; i++) {
                 const itemName = itemNames[Math.floor(Math.random() * itemNames.length)];
-                let threeMesh, cannonShape, size, itemGroup = new THREE.Group();
+                let threeMesh;
+                let cannonShape;
+                let size; 
+                let itemGroup = new THREE.Group();
+
                 const color = itemColors[Math.floor(Math.random() * itemColors.length)];
 
                 switch (itemName) {
@@ -942,10 +1041,15 @@
                         const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6, transparent: true, opacity: 0 });
                         threeMesh = new THREE.Mesh(geo, mat);
                         threeMesh.castShadow = threeMesh.receiveShadow = true;
-                        threeMesh.userData.size = size;
+                        threeMesh.userData.size = size; 
                         break;
                 }
-                console.log(`createCollectibleItems: Created item '${itemName}' with size ${size.toFixed(2)}.`);
+
+                // Defensive check: Ensure threeMesh and its userData.size are defined after the switch
+                if (!threeMesh || threeMesh.userData === undefined || threeMesh.userData.size === undefined) {
+                    console.error(`Skipping item due to undefined threeMesh or its userData.size for item: ${itemName}`);
+                    continue; // Skip this iteration if item creation failed
+                }
 
                 // Store the Cannon.js shape for later use (e.g., shedding)
                 threeMesh.userData.cannonShape = cannonShape; 
@@ -964,7 +1068,6 @@
                     currentX = THREE.MathUtils.clamp(currentX, -mapBoundary, mapBoundary);
                     currentZ = THREE.MathUtils.clamp(currentZ, -mapBoundary, mapBoundary);
 
-                    // Create a temporary sphere for visibility check
                     const tempSphere = new THREE.Sphere(new THREE.Vector3(currentX, threeMesh.userData.size / 2, currentZ), threeMesh.userData.size / 2);
 
                     // Check if the temporary sphere intersects with the camera's frustum
@@ -1143,42 +1246,61 @@
             let desiredVelocity = new CANNON.Vec3(0,0,0); // Use a Cannon.js vector for desired velocity
             let isMovingInput = false; // Track if there's *any* directional input
 
-            // Determine desired velocity based on keyboard input
-            if (keys['w'] || keys['arrowup']) {
-                desiredVelocity.x += cameraDirection.x * moveSpeed;
-                desiredVelocity.z += cameraDirection.z * moveSpeed;
-                isMovingInput = true;
-            }
-            if (keys['s'] || keys['arrowdown']) {
-                desiredVelocity.x -= cameraDirection.x * moveSpeed;
-                desiredVelocity.z -= cameraDirection.z * moveSpeed;
-                isMovingInput = true;
-            }
-            if (keys['a'] || keys['arrowleft']) {
-                desiredVelocity.x -= rightDirection.x * moveSpeed;
-                desiredVelocity.z -= rightDirection.z * moveSpeed;
-                isMovingInput = true;
-            }
-            if (keys['d'] || keys['arrowright']) {
-                desiredVelocity.x += rightDirection.x * moveSpeed;
-                desiredVelocity.z += rightDirection.z * moveSpeed;
-                isMovingInput = true;
-            }
+            if (useGyroscope) {
+                // Gyroscope input
+                // Map gamma (front-back tilt) to forward/backward movement
+                // Map beta (left-right tilt) to left/right movement
+                // Clamp values to prevent excessive speed/unintended movement
+                const forwardBackwardTilt = THREE.MathUtils.clamp(gyro.gamma / 45, -1, 1); // Normalize to -1 to 1
+                const leftRightTilt = THREE.MathUtils.clamp(gyro.beta / 45, -1, 1); // Normalize to -1 to 1
 
-            // Determine desired velocity based on touch input
-            if (touchInput.active) {
-                const deltaX = touchInput.currentX - touchInput.startX;
-                const deltaY = touchInput.currentY - touchInput.startY;
-
-                const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                if (length > touchDeadZone) { // Apply movement only if outside dead zone
-                    const normalizedDeltaX = deltaX / length;
-                    const normalizedDeltaY = deltaY / length;
-
-                    // Map touch X to right/left, touch Y to forward/backward relative to camera
-                    desiredVelocity.x += (cameraDirection.x * normalizedDeltaY - rightDirection.x * normalizedDeltaX) * moveSpeed * touchSensitivity;
-                    desiredVelocity.z += (cameraDirection.z * normalizedDeltaY - rightDirection.z * normalizedDeltaX) * moveSpeed * touchSensitivity;
+                desiredVelocity.x += cameraDirection.x * moveSpeed * forwardBackwardTilt * gyroSensitivity;
+                desiredVelocity.z += cameraDirection.z * moveSpeed * forwardBackwardTilt * gyroSensitivity;
+                desiredVelocity.x -= rightDirection.x * moveSpeed * leftRightTilt * gyroSensitivity;
+                desiredVelocity.z -= rightDirection.z * moveSpeed * leftRightTilt * gyroSensitivity;
+                
+                // If there's any significant tilt, consider it moving input
+                if (Math.abs(forwardBackwardTilt) > 0.1 || Math.abs(leftRightTilt) > 0.1) {
                     isMovingInput = true;
+                }
+            } else {
+                // Determine desired velocity based on keyboard input
+                if (keys['w'] || keys['arrowup']) {
+                    desiredVelocity.x += cameraDirection.x * moveSpeed;
+                    desiredVelocity.z += cameraDirection.z * moveSpeed;
+                    isMovingInput = true;
+                }
+                if (keys['s'] || keys['arrowdown']) {
+                    desiredVelocity.x -= cameraDirection.x * moveSpeed;
+                    desiredVelocity.z -= cameraDirection.z * moveSpeed;
+                    isMovingInput = true;
+                }
+                if (keys['a'] || keys['arrowleft']) {
+                    desiredVelocity.x -= rightDirection.x * moveSpeed;
+                    desiredVelocity.z -= rightDirection.z * moveSpeed;
+                    isMovingInput = true;
+                }
+                if (keys['d'] || keys['arrowright']) {
+                    desiredVelocity.x += rightDirection.x * moveSpeed;
+                    desiredVelocity.z += rightDirection.z * moveSpeed;
+                    isMovingInput = true;
+                }
+
+                // Determine desired velocity based on touch input
+                if (touchInput.active) {
+                    const deltaX = touchInput.currentX - touchInput.startX;
+                    const deltaY = touchInput.currentY - touchInput.startY;
+
+                    const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    if (length > touchDeadZone) { // Apply movement only if outside dead zone
+                        const normalizedDeltaX = deltaX / length;
+                        const normalizedDeltaY = deltaY / length;
+
+                        // Map touch X to right/left, touch Y to forward/backward relative to camera
+                        desiredVelocity.x += (cameraDirection.x * normalizedDeltaY - rightDirection.x * normalizedDeltaX) * moveSpeed * touchSensitivity;
+                        desiredVelocity.z += (cameraDirection.z * normalizedDeltaY - rightDirection.z * normalizedDeltaX) * moveSpeed * touchSensitivity;
+                        isMovingInput = true;
+                    }
                 }
             }
 
@@ -1343,7 +1465,7 @@
 
                         katamariBody.velocity.x += impulse.x;
                         katamariBody.velocity.y += impulse.y; // Apply vertical impulse
-                        katamariBody.velocity.z += impulse.z;
+                        impulse.z += impulse.z;
 
                         // Check cooldown before shedding items
                         if (currentTime - lastShedTime > shedCooldown) {
