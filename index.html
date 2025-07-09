@@ -251,7 +251,7 @@
 
             // Physics world setup (using CANNON from cannon-es)
             world = new CANNON.World();
-            world.gravity.set(0, -9.82, 0);
+            world.gravity.set(0, -20, 0); // Increased gravity for faster falling
             world.broadphase = new CANNON.SAPBroadphase(world);
             world.solver = new CANNON.GSSolver();
             world.solver.iterations = 7; // Reduced for performance
@@ -427,21 +427,21 @@
                     story: "The King of All Cosmos demands a pristine Earth! Roll up all the litter and grow your Katamari!",
                     items: ["Car", "Tree", "House", "Rock", "Bush", "Bench", "Lamp Post", "Trash Can", "Mailbox"],
                     groundColor: "#4CAF50", skyColor: "#87CEEB",
-                    targetMultiplier: 0.2 // Reduced target for first level
+                    baseTargetSize: 100 // Base target for this theme
                 },
                 {
                     themeName: "Urban Jungle",
                     story: "The city is a mess! Clean up the streets and grow your Katamari to skyscraper size!",
                     items: ["Car", "Lamp Post", "Trash Can", "Bench", "Mailbox", "Fire Hydrant", "Traffic Cone", "Hot Dog Stand"],
                     groundColor: "#607D8B", skyColor: "#B0C4DE",
-                    targetMultiplier: 2 // Larger target for city
+                    baseTargetSize: 200 // Base target for this theme
                 },
                 {
                     themeName: "Cosmic Debris",
                     story: "The cosmos is cluttered! Roll up space junk and form a new star!",
                     items: ["Asteroid", "Satellite", "Space Debris", "Comet Fragment", "Moon Rock", "Star Dust Cluster"],
                     groundColor: "#2C3E50", skyColor: "#0A0A2A",
-                    targetMultiplier: 4 // Even larger target for space
+                    baseTargetSize: 400 // Base target for this theme
                 }
             ];
             const theme = themes[(currentLevel - 1) % themes.length]; // Cycle through themes
@@ -469,7 +469,7 @@
             // Re-initialize Cannon.js world for items
             console.log("Re-initializing physics world...");
             world = new CANNON.World();
-            world.gravity.set(0, -9.82, 0);
+            world.gravity.set(0, -20, 0); // Increased gravity for faster falling
             world.broadphase = new CANNON.SAPBroadphase(world);
             world.solver = new CANNON.GSSolver();
             world.solver.iterations = 7; // Reduced for performance
@@ -483,7 +483,9 @@
             itemsCollectedUI.textContent = itemsCollectedCount;
 
             currentTheme = await generateLevelTheme(); // Store the theme globally
-            targetKatamariSize = 100 * currentTheme.targetMultiplier; // Scale target based on theme
+            // Difficulty scaling: target size increases with level
+            const difficultyFactor = 1 + (currentLevel - 1) * 0.5; // 0.5x increase per level
+            targetKatamariSize = currentTheme.baseTargetSize * difficultyFactor; 
             targetSizeUI.textContent = targetKatamariSize.toFixed(2) + 'm';
 
             scene.background = new THREE.Color(currentTheme.skyColor);
@@ -532,7 +534,7 @@
                 mass: 100, // High mass so it doesn't move easily by collisions
                 position: new CANNON.Vec3(0, katamariRadius, 0),
                 shape: katamariShape,
-                linearDamping: 0.4, // To slow down when no input
+                linearDamping: 0.3, // Reduced linear damping for faster falling
                 angularDamping: 0.4 // To slow rotation
             });
             world.addBody(katamariBody); // Use world.addBody for cannon-es
@@ -671,14 +673,25 @@
         // Modified createCollectibleItems to spawn around a center position
         function createCollectibleItems(count, itemNames, centerPosition = new THREE.Vector3(0,0,0), spawnRadius = 100) {
             console.log(`createCollectibleItems: Attempting to create ${count} items.`);
+            if (!itemNames || itemNames.length === 0) {
+                console.warn("createCollectibleItems: itemNames array is empty or undefined. Cannot create items.");
+                return;
+            }
             // Updated item colors to be more vibrant and diverse
             const itemColors = [0xFF6347, 0x6A5ACD, 0x3CB371, 0xFFD700, 0xBA55D3, 0x4682B4, 0xD2B48C, 0xFFA07A, 0x20B2AA, 0xFF69B4];
             for (let i = 0; i < count; i++) {
                 const itemName = itemNames[Math.floor(Math.random() * itemNames.length)];
-                let threeMesh;
-                let cannonShape;
-                let size; 
-                let itemGroup = new THREE.Group();
+                console.log(`Attempting to create item: ${itemName}`); 
+                
+                // Initialize with a default, generic item to prevent ReferenceError
+                let threeMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x888888, transparent: true, opacity: 0 }));
+                threeMesh.userData.size = 1; // Default size
+                threeMesh.castShadow = threeMesh.receiveShadow = true;
+
+                let cannonShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5)); // Default shape
+                let size = 1; // Default size, will be overwritten
+
+                let itemGroup = new THREE.Group(); // Still needed for grouped items
 
                 const color = itemColors[Math.floor(Math.random() * itemColors.length)];
 
@@ -1035,6 +1048,7 @@
                                 geo = new THREE.CylinderGeometry(size * 0.4, size * 0.5, size * 1.2, 24);
                                 cannonShape = new CANNON.Cylinder(size * 0.4, size * 0.5, size * 1.2, 24); break;
                             default: // Fallback, should not be hit if itemNames are well-defined
+                                console.warn(`Unknown item name '${itemName}' encountered. Using generic cube.`);
                                 geo = new THREE.BoxGeometry(size, size, size);
                                 cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.5, size * 0.5, size * 0.5));
                         }
@@ -1045,12 +1059,15 @@
                         break;
                 }
 
+                console.log(`After switch - threeMesh:`, threeMesh);
+                console.log(`After switch - cannonShape:`, cannonShape);
+
                 // Defensive check: Ensure threeMesh and its userData.size are defined after the switch
                 if (!threeMesh || threeMesh.userData === undefined || threeMesh.userData.size === undefined) {
-                    console.error(`Skipping item due to undefined threeMesh or its userData.size for item: ${itemName}`);
-                    continue; // Skip this iteration if item creation failed
+                    console.error(`Skipping item due to missing essential properties after switch for item: ${itemName}`);
+                    continue; 
                 }
-
+                
                 // Store the Cannon.js shape for later use (e.g., shedding)
                 threeMesh.userData.cannonShape = cannonShape; 
 
@@ -1249,10 +1266,10 @@
             if (useGyroscope) {
                 // Gyroscope input
                 // Map gamma (front-back tilt) to forward/backward movement
-                // Map beta (left-right tilt) to left/right movement
+                // Map beta (left-to-right tilt) to left/right movement
                 // Clamp values to prevent excessive speed/unintended movement
                 const forwardBackwardTilt = THREE.MathUtils.clamp(gyro.gamma / 45, -1, 1); // Normalize to -1 to 1
-                const leftRightTilt = THREE.MathUtils.clamp(gyro.beta / 45, -1, 1); // Normalize to -1 to 1
+                const leftRightTilt = THREE.MathUtils.lerp(0, -1, THREE.MathUtils.clamp(gyro.beta / 45, -1, 1)); // Normalize to -1 to 1
 
                 desiredVelocity.x += cameraDirection.x * moveSpeed * forwardBackwardTilt * gyroSensitivity;
                 desiredVelocity.z += cameraDirection.z * moveSpeed * forwardBackwardTilt * gyroSensitivity;
@@ -1341,10 +1358,11 @@
             // Smooth out the speed for camera FOV (use actual physics velocity)
             smoothedSpeed = THREE.MathUtils.lerp(smoothedSpeed, currentVelocityLength, 0.1);
 
-            // Clamp Katamari position to stay within bounds
+            // Clamp Katamari position to stay within bounds (only X and Z)
             katamariBody.position.x = THREE.MathUtils.clamp(katamariBody.position.x, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
             katamariBody.position.z = THREE.MathUtils.clamp(katamariBody.position.z, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
-            katamariBody.position.y = katamariRadius; // Keep it on the ground
+            // Removed: katamariBody.position.y = katamariRadius; // Let physics handle Y position
+
             // Also update the Three.js Katamari position to match the clamped physics body position
             katamari.position.copy(katamariBody.position);
 
@@ -1416,8 +1434,9 @@
                 const distance = katamariSphere.center.distanceTo(itemSphere.center);
                 const combinedRadius = katamariSphere.radius + itemSphere.radius;
 
-                // Only collect if the item is smaller than 1.5x Katamari radius
-                if (distance < combinedRadius && itemThreeMesh.userData.size < katamariRadius * 1.5) {
+                // Collection threshold: Only collect if the item is smaller than 1.5x Katamari radius
+                const collectionThreshold = 1.5; // Katamari must be 1.5x larger than item
+                if (distance < combinedRadius && itemThreeMesh.userData.size < katamariRadius / collectionThreshold) {
                     console.log(`Collecting item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
                     attachItem(itemThreeMesh, itemCannonBody);
                     playCollectionSound();
@@ -1451,26 +1470,38 @@
 
                     if (overlap > 0) {
                         console.log("Collision with mountain! Katamari too small to pass.");
-                        // Apply a repulsive impulse
+                        
+                        // Mass-dependent impulse calculation
+                        // Larger Katamari (higher mass) means less impact from fixed impulse strength
+                        // Smaller Katamari means more impact
+                        const katamariMass = katamariBody.mass;
+                        const mountainImpactFactor = mountainRadius / katamariRadius; // Larger mountain relative to Katamari = more impact
+                        const baseImpulseStrength = moveSpeed * 0.5; // Reduced base strength
+                        const impulseStrength = baseImpulseStrength * Math.max(0.2, mountainImpactFactor); // Scale by mountain size relative to Katamari, with a min
+
                         const collisionNormal = new CANNON.Vec3();
                         katamariBody.position.vsub(mountainCenterCannon, collisionNormal); 
                         collisionNormal.normalize();
-                        const impulseStrength = moveSpeed * 5;
                         const impulse = new CANNON.Vec3();
                         collisionNormal.scale(impulseStrength, impulse); 
                         
                         // Add a vertical component to the impulse for bouncing
-                        const bounceFactor = 0.5; // Adjust this value for higher/lower bounce
+                        const bounceFactor = 0.05; // Further reduced bounce factor
                         impulse.y += impulseStrength * bounceFactor; // Add upward impulse
 
                         katamariBody.velocity.x += impulse.x;
                         katamariBody.velocity.y += impulse.y; // Apply vertical impulse
-                        impulse.z += impulse.z;
+                        katamariBody.velocity.z += impulse.z;
+
+                        // Calculate number of items to shed based on relative sizes
+                        const shedAmountFactor = Math.min(1, mountainImpactFactor * 0.5); // Max 100% of items from shedding
+                        const maxShedItems = Math.floor(itemsCollectedCount * shedAmountFactor);
+                        const itemsToShed = Math.max(1, Math.min(3, maxShedItems)); // Shed at least 1, max 3, or up to maxShedItems
 
                         // Check cooldown before shedding items
                         if (currentTime - lastShedTime > shedCooldown) {
                             shedSound.triggerAttackRelease("C2", "8n"); // Play sound on bump
-                            shedItems(Math.floor(Math.random() * 3) + 1); // Shed 1 to 3 items
+                            shedItems(itemsToShed); 
                             lastShedTime = currentTime; // Update last shed time
                         }
                     }
@@ -1521,8 +1552,8 @@
                 katamariSphereShape.radius = katamariRadius;
             }
             // Also update Katamari body position to ensure it's on the ground if it grew
-            katamariBody.position.y = katamariRadius;
-            katamari.position.y = katamariRadius; // Sync visual to physics
+            // katamariBody.position.y = katamariRadius; // Removed: Let physics handle Y position
+            // katamari.position.y = katamariRadius; // Removed: Let physics handle Y position
             console.log(`Katamari radius updated to: ${katamariRadius.toFixed(2)}m, scale: ${scaleFactor.toFixed(2)}`);
         }
 
@@ -1600,8 +1631,8 @@
                 if (katamariSphereShape instanceof CANNON.Sphere) {
                     katamariSphereShape.radius = katamariRadius;
                 }
-                katamariBody.position.y = katamariRadius;
-                katamari.position.y = katamariRadius;
+                // katamariBody.position.y = katamariRadius; // Removed: Let physics handle Y position
+                // katamari.position.y = katamariRadius; // Removed: Let physics handle Y position
             }
             console.log("Finished shedding items.");
         }
