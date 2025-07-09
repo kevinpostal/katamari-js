@@ -168,7 +168,7 @@
         let itemsToCollect = [], physicsBodies = []; // physicsBodies will now only store item bodies
         let mountains = []; // Array to store mountain objects
         let katamariRadius = 2, targetKatamariSize = 100, itemsCollectedCount = 0;
-        let rollingSynth, collectionSynth, shedSound; // Tone.js synthesizers
+        let rollingSynth, collectionSynth, shedSound, attractionHum; // Tone.js synthesizers
         const keys = {}, clock = new THREE.Clock();
         // moveSpeed for direct Three.js movement, damping for item physics
         let moveSpeed = 15, damping = 0.1, timeStep = 1 / 60; 
@@ -201,7 +201,7 @@
 
         // --- Power-up Variables ---
         let activePowerUps = {}; // To store active power-ups and their expiry times
-        const powerUpTypes = ['magnetism', 'speedBoost', 'stickyCoating'];
+        const powerUpTypes = ['magnetism', 'speedBoost', 'stickyCoating', 'vacuumBoost'];
         const powerUpDuration = 5000; // 5 seconds in milliseconds
         let powerUpItems = []; // To store the visual meshes of power-up items
 
@@ -296,9 +296,11 @@
             world.gravity.set(0, -20, 0); // Increased gravity for faster falling
             world.broadphase = new CANNON.SAPBroadphase(world);
             world.solver = new CANNON.GSSolver();
-            world.solver.iterations = 7; // Reduced for performance
+            world.solver.iterations = 20; // Further increased for stability (especially with large items)
             world.defaultContactMaterial.friction = 1.0;
-            world.defaultContactMaterial.restitution = 0.3;
+            world.defaultContactMaterial.restitution = 0; // No bounciness
+            world.defaultContactMaterial.contactEquationStiffness = 1e8; // Increased stiffness for more rigid contacts
+            world.defaultContactMaterial.contactEquationRelaxation = 2; // Reduced relaxation for faster resolution
 
             // Lighting
             scene.add(new THREE.AmbientLight(0x404040));
@@ -339,6 +341,13 @@
                 oscillator: { type: "sine" },
                 volume: -15
             }).toDestination();
+
+            attractionHum = new Tone.Oscillator({
+                frequency: 50, // Start at a low frequency
+                type: "sine",
+                volume: -40 // Start very quiet
+            }).toDestination();
+            attractionHum.start();
 
             // Keyboard event listeners
             window.addEventListener('keydown', e => {
@@ -516,9 +525,11 @@
             world.gravity.set(0, -20, 0); // Increased gravity for faster falling
             world.broadphase = new CANNON.SAPBroadphase(world);
             world.solver = new CANNON.GSSolver();
-            world.solver.iterations = 7; // Reduced for performance
+            world.solver.iterations = 20; // Further increased for stability (especially with large items)
             world.defaultContactMaterial.friction = 1.0;
-            world.defaultContactMaterial.restitution = 0.3;
+            world.defaultContactMaterial.restitution = 0; // No bounciness
+            world.defaultContactMaterial.contactEquationStiffness = 1e8; // Increased stiffness for more rigid contacts
+            world.defaultContactMaterial.contactEquationRelaxation = 2; // Reduced relaxation for faster resolution
 
             itemsToCollect = [];
             physicsBodies = [];
@@ -579,8 +590,8 @@
                 mass: 100, // High mass so it doesn't move easily by collisions
                 position: new CANNON.Vec3(0, katamariRadius, 0),
                 shape: katamariShape,
-                linearDamping: 0.2, // Moderate linear damping
-                angularDamping: 0.3 // Moderate angular damping
+                linearDamping: 0.8, // Increased linear damping to absorb unexpected impulses
+                    angularDamping: 0.8 // Increased angular damping to absorb unexpected impulses
             });
             katamariBody.addEventListener('collide', handleKatamariCollision);
             world.addBody(katamariBody); // Use world.addBody for cannon-es
@@ -1454,7 +1465,7 @@
                 // If after maxAttempts, a non-visible position wasn't found, use the last generated one.
                 // This prevents infinite loops but might occasionally place an item in view if no valid spot is found.
 
-                const yPos = threeMesh.userData.size / 2; // Place on ground
+                const yPos = threeMesh.userData.size / 2 + 0.1; // Place slightly above ground to prevent falling through
                 threeMesh.position.set(currentX, yPos, currentZ);
                 threeMesh.rotation.set(0, Math.random() * Math.PI * 2, 0);
                 scene.add(threeMesh);
@@ -1525,6 +1536,7 @@
             return suckingEffect;
         }
 
+        
         let screenShake = { intensity: 0, duration: 0, startTime: 0 };
 
         function shakeScreen(intensity) {
@@ -1556,7 +1568,17 @@
         }
 
         function animate() {
-            updatePowerUps();
+            // Gradually increase suck factor as the ball gets larger, never going over 3
+            const minSuckRangeFactor = 1.5; // Starting suck factor for small Katamari
+            const maxSuckRangeFactor = 3.0; // Maximum suck factor
+            const suckFactorGrowthRate = 0.1; // How quickly suck factor increases with radius
+
+            let currentSuckRangeFactor = minSuckRangeFactor + (katamariRadius * suckFactorGrowthRate);
+            currentSuckRangeFactor = Math.min(maxSuckRangeFactor, currentSuckRangeFactor); // Cap at max
+
+            const suckRange = katamariRadius * currentSuckRangeFactor;
+
+            updatePowerUps(currentSuckRangeFactor);
             fpsCounter.update();
             requestAnimationFrame(animate);
 
@@ -1601,6 +1623,97 @@
                 }
             }
 
+            // Apply attraction forces to items
+            const katamariMass = katamariBody.mass;
+            
+            const fullPhysicsRange = 50;
+            const simplifiedPhysicsRange = 100;
+
+            for (const body of physicsBodies) {
+                if (body.userData && body.userData.threeMesh && body.userData.threeMesh.userData.isAttracting) {
+                    const itemThreeMesh = body.userData.threeMesh;
+                    const distance = katamari.position.distanceTo(itemThreeMesh.position);
+
+                    if (distance < suckRange) {
+                        // Gravitational pull (inverse square law)
+                        // Simplified attraction force: proportional to Katamari radius, inversely proportional to distance
+                        // This is more stable than using rapidly increasing mass
+                        let forceMagnitude = (katamariRadius * 50) / distance; // Adjust 50 for desired strength
+
+                        // Clamp force to prevent extreme values when very close or too strong
+                        forceMagnitude = Math.min(forceMagnitude, 50); // Max force to prevent instability
+
+                        // Smoothly reduce force as item gets very close to attachment point
+                        const attachmentThreshold = katamariRadius + itemThreeMesh.userData.size * 0.5;
+                        const fadeDistance = 0.5; // Start fading force when item is within 0.5 units of attachmentThreshold
+                        if (distance < attachmentThreshold + fadeDistance) {
+                            const fadeProgress = 1 - ((distance - attachmentThreshold) / fadeDistance);
+                            forceMagnitude *= Math.max(0, fadeProgress); // Reduce force to 0 as it reaches attachmentThreshold
+                        }
+
+                        const direction = new CANNON.Vec3();
+                        katamariBody.position.vsub(body.position, direction);
+                        direction.normalize();
+
+                        const attractionForce = new CANNON.Vec3();
+                        direction.scale(forceMagnitude, attractionForce);
+                        body.applyForce(attractionForce, body.position);
+
+                        // Apply torque for orbital motion (simplified)
+                        const torqueMagnitude = forceMagnitude * 0.01; // Adjust for desired orbital speed
+                        const torqueAxis = new CANNON.Vec3(0, 1, 0); // Rotate around Y-axis
+                        const attractionTorque = new CANNON.Vec3();
+                        torqueAxis.scale(torqueMagnitude, attractionTorque);
+                        body.applyTorque(attractionTorque);
+
+                        // Apply angular damping to orbiting items
+                        body.angularVelocity.scale(0.95, body.angularVelocity); // Apply 5% damping per frame
+
+                        // If close enough, attach immediately
+                        // If close enough, attach immediately
+                        // If close enough, attach immediately
+                        if (distance < katamariRadius + itemThreeMesh.userData.size * 0.5) {
+                            attachItem(itemThreeMesh, body); // This is where the item is "collected"
+                            itemThreeMesh.userData.isAttracting = false; // Stop attracting
+                            // console.log(`Item ${itemThreeMesh.userData.size.toFixed(2)}m merged with Katamari.`); // Removed console.log
+                        }
+
+                    } else {
+                        // If item leaves suck range, stop attracting
+                        itemThreeMesh.userData.isAttracting = false;
+
+                    }
+                }
+            }
+
+            
+
+            // Update attraction hum sound
+            let totalAttractionForce = 0;
+            let attractedItemsCount = 0;
+            for (const body of physicsBodies) {
+                if (body.userData && body.userData.threeMesh && body.userData.threeMesh.userData.isAttracting) {
+                    const itemThreeMesh = body.userData.threeMesh;
+                    const distance = katamari.position.distanceTo(itemThreeMesh.position);
+                    if (distance < suckRange) {
+                        totalAttractionForce += body.userData.attractionForce.length();
+                        attractedItemsCount++;
+                    }
+                }
+            }
+
+            if (attractedItemsCount > 0) {
+                const avgForce = totalAttractionForce / attractedItemsCount;
+                const normalizedForce = Math.min(1, avgForce / 100); // Normalize force to 0-1 range
+                const targetFrequency = THREE.MathUtils.lerp(50, 200, normalizedForce); // Pitch up to 200Hz
+                const targetVolume = THREE.MathUtils.lerp(-40, -10, normalizedForce); // Increase volume
+
+                attractionHum.frequency.value = targetFrequency;
+                attractionHum.volume.value = targetVolume;
+            } else {
+                attractionHum.volume.value = -40; // Quiet when no items are attracted
+            }
+
             // Update physics world
             try {
                 world.step(timeStep, deltaTime);
@@ -1610,6 +1723,8 @@
                 renderer.render(scene, camera);
                 return;
             }
+
+            
 
             // Sync Three.js Katamari with physics body
             katamari.position.copy(katamariBody.position);
@@ -1648,6 +1763,15 @@
                 }
             }
 
+            // Handle attached item hovering (no absorption)
+            // Items will remain attached and visible
+            for (let i = katamari.children.length - 1; i >= 0; i--) {
+                const child = katamari.children[i];
+                // No absorption logic here, items will stay attached
+                // We still iterate to ensure the loop structure is maintained if needed for future features
+                // but for now, no action is taken on attached items other than their initial placement.
+            }
+
             // Update particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 const particle = particles[i];
@@ -1655,6 +1779,13 @@
 
                 // Apply gravity and velocity
                 particle.userData.velocity.addScaledVector(particle.userData.gravity, deltaTime);
+                
+                // If target position is set, move towards it
+                if (particle.userData.targetPosition) {
+                    const direction = new THREE.Vector3().subVectors(particle.userData.targetPosition, particle.position).normalize();
+                    particle.userData.velocity.add(direction.multiplyScalar(5 * deltaTime)); // Adjust attraction speed
+                }
+
                 particle.position.addScaledVector(particle.userData.velocity, deltaTime);
 
                 // Fade out
@@ -1869,15 +2000,17 @@
                 return;
             }
 
-            // NEW COLLECTION LOGIC: Collect if Katamari radius is larger than the item's size.
-            if (katamariRadius > itemThreeMesh.userData.size) {
-                // Check if the body is still in the world to prevent attaching the same item multiple times per physics step.
-                if (world.bodies.includes(itemCannonBody)) {
-                    console.log(`Collecting item via physics collision: ${itemThreeMesh.userData.size.toFixed(2)}m`);
-                    if (itemThreeMesh.userData.size > katamariRadius * 0.2) {
-                        shakeScreen(0.1);
-                    }
-                    attachItem(itemThreeMesh, itemCannonBody);
+            // Check if Katamari is large enough to collect the item
+            if (katamariRadius >= itemThreeMesh.userData.size) { // Allow picking up items of the same size or smaller
+                // Check if the item is already being attracted
+                if (!itemThreeMesh.userData.isAttracting) {
+                    itemThreeMesh.userData.isAttracting = true;
+                    itemThreeMesh.userData.attractionStartTime = Date.now();
+                    itemCannonBody.userData.attractionForce = new CANNON.Vec3(); // Store attraction force
+                    itemCannonBody.userData.attractionTorque = new CANNON.Vec3(); // Store attraction torque
+                    itemThreeMesh.userData.attachmentStage = 0; // 0: orbiting, 1: locking, 2: merging
+                    console.log(`Initiating attraction for item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
+                    createParticles(itemThreeMesh.position, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'suck', itemThreeMesh.userData.size, katamari.position);
                 }
             }
         }
@@ -1897,10 +2030,11 @@
             collectionSynth.triggerAttackRelease("C5", "8n");
         }
 
-        function updatePowerUps() {
+        function updatePowerUps(baseSuckRangeFactor) {
             const now = Date.now();
             let speedBoostActive = false;
             let magnetismActive = false;
+            let vacuumBoostActive = false; // New variable
             let powerUpStatusHTML = '';
 
             for (const type in activePowerUps) {
@@ -1917,24 +2051,15 @@
                 switch (type) {
                     case 'magnetism':
                         magnetismActive = true;
-                        const magnetismRange = katamariRadius * 3;
-                        physicsBodies.forEach(body => {
-                            if (body.userData && body.userData.threeMesh) {
-                                const item = body.userData.threeMesh;
-                                const distance = katamari.position.distanceTo(item.position);
-                                if (distance < magnetismRange && katamariRadius > item.userData.size) {
-                                    const direction = new THREE.Vector3().subVectors(katamari.position, item.position).normalize();
-                                    const force = direction.multiplyScalar(300);
-                                    body.applyForce(new CANNON.Vec3(force.x, force.y, force.z), body.position);
-                                }
-                            }
-                        });
                         break;
                     case 'speedBoost':
                         speedBoostActive = true;
                         break;
                     case 'stickyCoating':
                         // This is handled in checkMountainCollisions
+                        break;
+                    case 'vacuumBoost': // New case
+                        vacuumBoostActive = true;
                         break;
                 }
             }
@@ -1948,16 +2073,105 @@
                 moveSpeed = 15;
             }
 
+            // Apply vacuum boost
+            let currentSuckRangeFactor = baseSuckRangeFactor;
+            let currentForceMultiplier = 1;
+            if (vacuumBoostActive) {
+                currentSuckRangeFactor *= 2;
+                currentForceMultiplier *= 2;
+            }
+
             // Update sucking effect
             if (suckingEffect) {
                 if (magnetismActive) {
                     suckingEffect.visible = true;
-                    suckingEffect.scale.x = katamariRadius * 0.5;
-                    suckingEffect.scale.y = katamariRadius * 0.5;
-                    suckingEffect.scale.z = katamariRadius * 0.5;
+                    suckingEffect.scale.x = katamariRadius * 0.5 * (vacuumBoostActive ? 1.5 : 1); // Intensify vortex
+                    suckingEffect.scale.y = katamariRadius * 0.5 * (vacuumBoostActive ? 1.5 : 1);
+                    suckingEffect.scale.z = katamariRadius * 0.5 * (vacuumBoostActive ? 1.5 : 1);
                     suckingEffect.material.opacity = 0.3 + Math.sin(Date.now() * 0.01) * 0.2;
                 } else {
                     suckingEffect.visible = false;
+                }
+            }
+
+            // Update attraction forces to items (using new multipliers)
+            const katamariMass = katamariBody.mass;
+            
+            for (const body of physicsBodies) {
+                if (body.userData && body.userData.threeMesh) { // Check if it's a valid item body
+                    const itemThreeMesh = body.userData.threeMesh;
+                    const distance = katamari.position.distanceTo(itemThreeMesh.position);
+                    const suckRange = katamariRadius * currentSuckRangeFactor; // Recalculate suckRange for each item
+
+                    // Only process attraction if the item is within suck range and not already attached
+                    if (distance < suckRange && itemThreeMesh.userData.attachmentStage !== 2) {
+                        // If not yet attracting, initiate attraction
+                        if (!itemThreeMesh.userData.isAttracting) {
+                            itemThreeMesh.userData.isAttracting = true;
+                            itemThreeMesh.userData.attractionStartTime = Date.now();
+                            body.userData.attractionForce = new CANNON.Vec3();
+                            body.userData.attractionTorque = new CANNON.Vec3();
+                            itemThreeMesh.userData.attachmentStage = 0;
+                            console.log(`Initiating attraction for item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
+                            createParticles(itemThreeMesh.position, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'suck', itemThreeMesh.userData.size, katamari.position);
+                        }
+
+                        // Gravitational pull (inverse square law)
+                        const G = 6.674e-11; // Gravitational constant (placeholder, adjust for game feel)
+                        const itemMass = itemThreeMesh.userData.size * 5; // Assuming item mass scales with size
+                        let forceMagnitude = (katamariMass * itemMass) / (distance * distance);
+
+                        // Apply vacuum boost force multiplier
+                        forceMagnitude *= currentForceMultiplier;
+
+                        // Clamp force to prevent extreme values when very close
+                        forceMagnitude = Math.min(forceMagnitude, 500 * currentForceMultiplier); // Max force to prevent instability
+
+                        const direction = new CANNON.Vec3();
+                        katamariBody.position.vsub(body.position, direction);
+                        direction.normalize();
+
+                        const attractionForce = new CANNON.Vec3();
+                        direction.scale(forceMagnitude, attractionForce);
+                        body.applyForce(attractionForce, body.position);
+
+                        // Apply torque for orbital motion (simplified)
+                        const torqueMagnitude = forceMagnitude * 0.01; // Adjust for desired orbital speed
+                        const torqueAxis = new CANNON.Vec3(0, 1, 0); // Rotate around Y-axis
+                        const attractionTorque = new CANNON.Vec3();
+                        torqueAxis.scale(torqueMagnitude, attractionTorque);
+                        body.applyTorque(attractionTorque);
+
+                        // Apply angular damping to orbiting items
+                        body.angularVelocity.scale(0.95, body.angularVelocity); // Apply 5% damping per frame
+
+                        // Update attachment stage
+                        const attractionDuration = Date.now() - itemThreeMesh.userData.attractionStartTime;
+                        let orbitDuration = 0.5; // Default for small items
+                        if (itemThreeMesh.userData.size > 1) orbitDuration = 1; // Medium items
+                        if (itemThreeMesh.userData.size > 5) orbitDuration = 2; // Large items
+
+                        if (attractionDuration / 1000 > orbitDuration && itemThreeMesh.userData.attachmentStage === 0) {
+                            itemThreeMesh.userData.attachmentStage = 1; // Transition to locking stage
+                            body.sleep(); // Put physics body to sleep
+                            console.log(`Item ${itemThreeMesh.userData.size.toFixed(2)}m transitioned to locking stage.`);
+                        }
+
+                        if (itemThreeMesh.userData.attachmentStage === 1) {
+                            // If close enough, attach
+                            if (distance < katamariRadius + itemThreeMesh.userData.size * 0.5) {
+                                attachItem(itemThreeMesh, body);
+                                itemThreeMesh.userData.attachmentStage = 2; // Merged
+                                itemThreeMesh.userData.isAttracting = false; // Stop attracting
+                                console.log(`Item ${itemThreeMesh.userData.size.toFixed(2)}m merged with Katamari.`);
+                            }
+                        }
+
+                    } else if (itemThreeMesh.userData.isAttracting) { // If item leaves suck range AND was attracting
+                        itemThreeMesh.userData.isAttracting = false;
+                        itemThreeMesh.userData.attachmentStage = 0;
+
+                    }
                 }
             }
         }
@@ -1994,8 +2208,9 @@
                         // Smaller Katamari means more impact
                         const katamariMass = katamariBody.mass;
                         const mountainImpactFactor = mountainRadius / katamariRadius; // Larger mountain relative to Katamari = more impact
-                        const baseImpulseStrength = moveSpeed * 0.5; // Reduced base strength
-                        const impulseStrength = baseImpulseStrength * Math.max(0.2, mountainImpactFactor); // Scale by mountain size relative to Katamari, with a min
+                        const baseImpulseStrength = moveSpeed * 0.2; // Further reduced base strength for less severe push back
+                        const cappedMountainImpactFactor = Math.min(2.0, mountainImpactFactor); // Cap impact factor to prevent extreme impulses
+                        const impulseStrength = baseImpulseStrength * Math.max(0.2, cappedMountainImpactFactor); // Scale by mountain size relative to Katamari, with a min
 
                         const collisionNormal = new CANNON.Vec3();
                         katamariBody.position.vsub(mountainCenterCannon, collisionNormal); 
@@ -2033,7 +2248,7 @@
         }
 
         // New function to create and manage particles
-        function createParticles(position, color, type, size = 1) {
+        function createParticles(position, color, type, size = 1, targetPosition = null) {
             const numParticles = type === 'shed' ? 15 : 10 * Math.log(size + 1);
             const particleSize = 0.1 * Math.log(size + 1);
             const particleMaterial = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1 });
@@ -2054,6 +2269,7 @@
                 particle.userData.lifespan = Math.random() * 0.8 + 0.4; // Lifespan in seconds
                 particle.userData.age = 0;
                 particle.userData.gravity = new THREE.Vector3(0, -9.82, 0); // Apply gravity to particles
+                particle.userData.targetPosition = targetPosition; // Store target position for attraction
 
                 scene.add(particle);
                 particles.push(particle);
@@ -2223,12 +2439,16 @@
         }
 
         function attachItem(itemThreeMesh, itemCannonBody) {
-            console.log(`Attaching item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
+            
+            // Disable collision response for the item's physics body before removing it
+            itemCannonBody.collisionResponse = false;
+            itemCannonBody.mass = 0; // Make it massless to prevent any residual forces
+
             // Remove from Cannon.js world
             world.removeBody(itemCannonBody);
             physicsBodies = physicsBodies.filter(body => body !== itemCannonBody);
 
-            // Remove from Three.js items to collect list
+            // Remove from Three.js items to collect list (no longer immediately removed from scene)
             itemsToCollect = itemsToCollect.filter(item => item !== itemThreeMesh);
 
             // Increment collected items count and update UI
@@ -2242,36 +2462,73 @@
             // Play collection sound
             playCollectionSound(itemThreeMesh.userData.size);
 
-            // Calculate position on Katamari surface
-            const itemWorldPosition = new THREE.Vector3();
-            itemThreeMesh.getWorldPosition(itemWorldPosition);
-            const katamariWorldPosition = new THREE.Vector3();
-            katamari.getWorldPosition(katamariWorldPosition);
+            // Update Katamari size and count
+            katamariRadius = Math.cbrt(Math.pow(katamariRadius, 3) + Math.pow(itemThreeMesh.userData.size, 3));
+            updateKatamariPhysics(); // Update physics body size
 
-            const directionFromKatamari = new THREE.Vector3().subVectors(itemWorldPosition, katamariWorldPosition).normalize();
-            
-            // Attach item to Katamari's Three.js group
-            katamari.attach(itemThreeMesh);
-            console.log("Item attached to Katamari Three.js group.");
+            // Update Katamari texture (removed for now, as it changes too frequently)
+            // katamari.children[0].material.map = new THREE.CanvasTexture(generateKatamariTexture());
+            // katamari.children[0].material.needsUpdate = true;
 
-            // Position item on the surface of the Katamari
-            const newLocalPosition = directionFromKatamari.multiplyScalar(katamariRadius);
-            itemThreeMesh.position.copy(newLocalPosition);
+            // --- New logic for item attachment ---
+            // Get the item's world position before it becomes a child
+            const itemWorldPosition = itemThreeMesh.position.clone();
 
-            // Orient the item to face outwards from the Katamari, with a random rotation around its axis
-            const targetQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), directionFromKatamari);
-            const randomRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI * 2);
-            targetQuaternion.multiply(randomRotation);
+            // Add the item to the Katamari's Three.js group
+            // This makes itemThreeMesh.position relative to katamari's local origin
+            katamari.add(itemThreeMesh);
 
-            // Convert world quaternion to local quaternion relative to Katamari
-            const katamariWorldQuaternion = new THREE.Quaternion();
-            katamari.getWorldQuaternion(katamariWorldQuaternion);
-            const katamariWorldQuaternionInverse = katamariWorldQuaternion.clone().invert();
-            const newLocalQuaternion = katamariWorldQuaternionInverse.multiply(targetQuaternion);
-            itemThreeMesh.quaternion.copy(newLocalQuaternion);
+            // Now, calculate the desired local position on the Katamari's surface
+            // The direction from Katamari's center to the item's original world position
+            // needs to be transformed into Katamari's local space.
+            const directionFromKatamariCenter = new THREE.Vector3().subVectors(itemWorldPosition, katamari.position);
 
-            // Grow the Katamari
-            growKatamari(itemThreeMesh.userData.size);
+            // Transform this direction into the Katamari's local space
+            // This is equivalent to rotating the direction vector by the inverse of Katamari's quaternion
+            const localDirection = directionFromKatamariCenter.applyQuaternion(katamari.quaternion.clone().invert());
+
+            // Normalize and scale to place on surface
+            // Dynamic hovering factors for compression
+            const baseHoveringRadiusFactor = 1.05;
+            const minHoveringRadiusFactor = 1.01; // Minimum factor to prevent items from collapsing into the core
+            const compressionFactor = 0.005; // How much the factor decreases per unit of katamariRadius
+
+            let currentHoveringRadiusFactor = baseHoveringRadiusFactor - (katamariRadius * compressionFactor);
+            currentHoveringRadiusFactor = Math.max(minHoveringRadiusFactor, currentHoveringRadiusFactor); // Clamp to minimum
+
+            const baseRandomOffsetMultiplier = 0.1;
+            const minRandomOffsetMultiplier = 0.01; // Minimum random offset to maintain some spherical distribution
+            const randomOffsetCompressionFactor = 0.002; // How much the random offset multiplier decreases
+
+            let currentRandomOffsetMultiplier = baseRandomOffsetMultiplier - (katamariRadius * randomOffsetCompressionFactor);
+            currentRandomOffsetMultiplier = Math.max(minRandomOffsetMultiplier, currentRandomOffsetMultiplier); // Clamp to minimum
+
+            const randomOffset = Math.random() * (katamariRadius * currentRandomOffsetMultiplier);
+            const targetDistance = (katamariRadius * currentHoveringRadiusFactor) + randomOffset;
+
+            localDirection.normalize().multiplyScalar(targetDistance);
+
+            // Set the item's local position
+            itemThreeMesh.position.copy(localDirection);
+
+            // itemThreeMesh.quaternion.copy(new THREE.Quaternion()); // Removed: retain original rotation relative to Katamari
+            // If we want to retain the item's world orientation, we need to convert it to local orientation
+            // itemThreeMesh.quaternion.premultiply(katamari.quaternion.clone().invert());
+
+            // Mark item as attached
+            itemThreeMesh.userData.isAttachedToKatamari = true;
+
+            // Store initial scale for each mesh within the item (important for groups)
+            // This is still useful if we want to reset scale later or for other visual effects
+            if (itemThreeMesh.isGroup) {
+                itemThreeMesh.traverse(function (object) {
+                    if (object.isMesh) {
+                        object.userData.initialScale = object.scale.clone();
+                    }
+                });
+            } else if (itemThreeMesh.isMesh) {
+                itemThreeMesh.userData.initialScale = itemThreeMesh.scale.clone();
+            }
         }
 
         function updateCamera(currentSpeed) { // Now receives smoothedSpeed
