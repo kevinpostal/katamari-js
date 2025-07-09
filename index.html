@@ -290,7 +290,7 @@
             world.broadphase = new CANNON.SAPBroadphase(world);
             world.solver = new CANNON.GSSolver();
             world.solver.iterations = 7; // Reduced for performance
-            world.defaultContactMaterial.friction = 0.7;
+            world.defaultContactMaterial.friction = 1.0;
             world.defaultContactMaterial.restitution = 0.3;
 
             // Lighting
@@ -508,7 +508,7 @@
             world.broadphase = new CANNON.SAPBroadphase(world);
             world.solver = new CANNON.GSSolver();
             world.solver.iterations = 7; // Reduced for performance
-            world.defaultContactMaterial.friction = 0.7;
+            world.defaultContactMaterial.friction = 1.0;
             world.defaultContactMaterial.restitution = 0.3;
 
             itemsToCollect = [];
@@ -569,8 +569,8 @@
                 mass: 100, // High mass so it doesn't move easily by collisions
                 position: new CANNON.Vec3(0, katamariRadius, 0),
                 shape: katamariShape,
-                linearDamping: 0.3, // Reduced linear damping for faster falling
-                angularDamping: 0.4 // To slow rotation
+                linearDamping: 0.2, // Moderate linear damping
+                angularDamping: 0.3 // Moderate angular damping
             });
             katamariBody.addEventListener('collide', handleKatamariCollision);
             world.addBody(katamariBody); // Use world.addBody for cannon-es
@@ -1501,6 +1501,9 @@
 
             const deltaTime = clock.getDelta();
             
+            // Reintroduce currentVelocityLength for sound and camera FOV
+            const currentVelocityLength = katamariBody.velocity.length();
+
             // Update frustum for visibility checks
             camera.updateMatrixWorld(); // Ensure camera's world matrix is up-to-date
             frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -1631,13 +1634,13 @@
             } else {
                 // Determine desired velocity based on keyboard input
                 if (keys['w'] || keys['arrowup']) {
-                    desiredVelocity.x += cameraDirection.x * moveSpeed;
-                    desiredVelocity.z += cameraDirection.z * moveSpeed;
+                    desiredVelocity.x -= cameraDirection.x * moveSpeed;
+                    desiredVelocity.z -= cameraDirection.z * moveSpeed;
                     isMovingInput = true;
                 }
                 if (keys['s'] || keys['arrowdown']) {
-                    desiredVelocity.x -= cameraDirection.x * moveSpeed;
-                    desiredVelocity.z -= cameraDirection.z * moveSpeed;
+                    desiredVelocity.x += cameraDirection.x * moveSpeed;
+                    desiredVelocity.z += cameraDirection.z * moveSpeed;
                     isMovingInput = true;
                 }
                 if (keys['a'] || keys['arrowleft']) {
@@ -1671,37 +1674,36 @@
 
             // Apply desired velocity if there's input, otherwise let damping handle it
             if (isMovingInput) {
-                // Directly set the velocity for immediate response
-                // Keep the current Y velocity to allow for gravity/bouncing
-                katamariBody.velocity.set(desiredVelocity.x, katamariBody.velocity.y, desiredVelocity.z);
+                // Normalize desiredVelocity to get a consistent direction vector
+                desiredVelocity.normalize();
+
+                // Calculate the desired angular velocity based on input direction
+                const moveDirection = new CANNON.Vec3(desiredVelocity.x, 0, desiredVelocity.z);
+                const angularSpeed = moveSpeed / katamariRadius;
+                const desiredAngularVelocity = new CANNON.Vec3();
+                moveDirection.cross(new CANNON.Vec3(0, 1, 0), desiredAngularVelocity); // Cross with up vector to get perpendicular for rotation
+                desiredAngularVelocity.scale(angularSpeed, desiredAngularVelocity);
+
+                // Smoothly interpolate the actual angular velocity towards the desired
+                const interpolationFactor = 0.2; // Adjust for responsiveness
+                katamariBody.angularVelocity.x = THREE.MathUtils.lerp(katamariBody.angularVelocity.x, desiredAngularVelocity.x, interpolationFactor);
+                katamariBody.angularVelocity.y = THREE.MathUtils.lerp(katamariBody.angularVelocity.y, desiredAngularVelocity.y, interpolationFactor);
+                katamariBody.angularVelocity.z = THREE.MathUtils.lerp(katamariBody.angularVelocity.z, desiredAngularVelocity.z, interpolationFactor);
+
+                // Also apply a small linear force to help overcome friction and initiate movement
+                const linearForceMagnitude = moveSpeed * 1.5; // Increased linear force
+                const linearForceVector = new CANNON.Vec3(desiredVelocity.x, 0, desiredVelocity.z).unit().scale(linearForceMagnitude);
+                katamariBody.applyForce(linearForceVector, new CANNON.Vec3(0, 0, 0)); // Apply at center of mass
+
+            } else {
+                // If no input, smoothly bring angular velocity to zero
+                const interpolationFactor = 0.1; // Adjust for stopping speed
+                katamariBody.angularVelocity.x = THREE.MathUtils.lerp(katamariBody.angularVelocity.x, 0, interpolationFactor);
+                katamariBody.angularVelocity.y = THREE.MathUtils.lerp(katamariBody.angularVelocity.y, 0, interpolationFactor);
+                katamariBody.angularVelocity.z = THREE.MathUtils.lerp(katamariBody.angularVelocity.z, 0, interpolationFactor);
             }
             // If no input, the linearDamping will naturally slow it down.
 
-
-            // Calculate rolling rotation based on actual current velocity
-            const currentVelocityLength = katamariBody.velocity.length();
-            if (currentVelocityLength > 0.1) { // Only apply rolling if there's significant movement
-                const up = new CANNON.Vec3(0,1,0);
-                const targetAngularVelocity = new CANNON.Vec3();
-                // Calculate the desired angular velocity for rolling
-                katamariBody.velocity.cross(up, targetAngularVelocity);
-                targetAngularVelocity.scale(1 / katamariRadius, targetAngularVelocity);
-
-                // Smoothly interpolate the actual angular velocity towards the target
-                // Use a higher interpolation factor when speed is low for snappier start
-                const interpolationFactor = THREE.MathUtils.lerp(0.5, 0.1, Math.min(1, currentVelocityLength / 5)); // 0.5 for very low speed, 0.1 for higher
-                katamariBody.angularVelocity.x = THREE.MathUtils.lerp(katamariBody.angularVelocity.x, targetAngularVelocity.x, interpolationFactor);
-                katamariBody.angularVelocity.y = THREE.MathUtils.lerp(katamariBody.angularVelocity.y, targetAngularVelocity.y, interpolationFactor);
-                katamariBody.angularVelocity.z = THREE.MathUtils.lerp(katamariBody.angularVelocity.z, targetAngularVelocity.z, interpolationFactor);
-                
-                playRollingSound(currentVelocityLength);
-            } else {
-                // If velocity is very low, stop rolling sound and smoothly bring angular velocity to zero
-                stopRollingSound();
-                katamariBody.angularVelocity.x = THREE.MathUtils.lerp(katamariBody.angularVelocity.x, 0, 0.1);
-                katamariBody.angularVelocity.y = THREE.MathUtils.lerp(katamariBody.angularVelocity.y, 0, 0.1);
-                katamariBody.angularVelocity.z = THREE.MathUtils.lerp(katamariBody.angularVelocity.z, 0, 0.1);
-            }
 
             // Smooth out the speed for camera FOV (use actual physics velocity)
             smoothedSpeed = THREE.MathUtils.lerp(smoothedSpeed, currentVelocityLength, 0.1);
@@ -1711,7 +1713,13 @@
             katamariBody.position.z = THREE.MathUtils.clamp(katamariBody.position.z, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
             // Removed: katamariBody.position.y = katamariRadius; // Let physics handle Y position
 
-            katamariBody.position.y = katamariRadius; // Keep it on the ground
+            // Play rolling sound based on current velocity
+            if (currentVelocityLength > 0.1) {
+                playRollingSound(currentVelocityLength);
+            } else {
+                stopRollingSound();
+            }
+
             // Also update the Three.js Katamari position to match the clamped physics body position
             katamari.position.copy(katamariBody.position);
 
