@@ -1714,6 +1714,12 @@
                 attractionHum.volume.value = -40; // Quiet when no items are attracted
             }
 
+            // Sync Three.js Katamari with physics body *before* the physics step
+            // This ensures the visual representation is updated to the physics body's current state
+            // before the next physics calculation, improving visual responsiveness.
+            katamari.position.copy(katamariBody.position);
+            katamari.quaternion.copy(katamariBody.quaternion);
+
             // Update physics world
             try {
                 world.step(timeStep, deltaTime);
@@ -1727,8 +1733,7 @@
             
 
             // Sync Three.js Katamari with physics body
-            katamari.position.copy(katamariBody.position);
-            katamari.quaternion.copy(katamariBody.quaternion);
+            
 
             // Sync Three.js item meshes with their Cannon.js bodies
             for (const body of physicsBodies) {
@@ -2289,7 +2294,12 @@
             // So, mass = 12.5 * radius^3
             katamariBody.mass = 12.5 * Math.pow(katamariRadius, 3);
             katamariBody.updateMassProperties(); // Recalculate inertia and other properties
-            console.log(`Katamari physics updated: Radius=${katamariRadius.toFixed(2)}m, Mass=${katamariBody.mass.toFixed(2)}kg`);
+
+            // Crucial: Update the physics body's Y position to match the new radius
+            // This prevents the Katamari from sinking into the ground as it grows
+            katamariBody.position.y = katamariRadius;
+
+            console.log(`Katamari physics updated: Radius=${katamariRadius.toFixed(2)}m, Mass=${katamariBody.mass.toFixed(2)}kg, Y-Pos=${katamariBody.position.y.toFixed(2)}m`);
         }
 
         // New helper function to encapsulate Katamari size updates
@@ -2316,6 +2326,7 @@
             // Calculate growth based on non-linear scaling
             const growthAmount = getGrowthContribution(itemSize, katamariRadius);
             katamariRadius += growthAmount;
+            updateKatamariPhysics();
 
             // Update Katamari's visual geometry and physics body
             updateKatamariVisualsAndPhysics();
@@ -2399,6 +2410,7 @@
 
             // Reduce Katamari size proportionally to shed items
             katamariRadius = Math.max(2, katamariRadius - (totalShedSize * 0.5)); // Reduce by half the total size, minimum radius 2
+            updateKatamariPhysics();
             updateKatamariVisualsAndPhysics();
 
             console.log("Finished shedding items.");
@@ -2464,6 +2476,7 @@
 
             // Update Katamari size and count
             katamariRadius = Math.cbrt(Math.pow(katamariRadius, 3) + Math.pow(itemThreeMesh.userData.size, 3));
+            updateKatamariPhysics();
             updateKatamariPhysics(); // Update physics body size
 
             // Update Katamari texture (removed for now, as it changes too frequently)
