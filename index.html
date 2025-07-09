@@ -1962,8 +1962,11 @@
             const itemsToActuallyShed = Math.min(numToShed, attachedItems.length);
             console.log(`Actually shedding ${itemsToActuallyShed} items.`);
 
+            let totalShedSize = 0; // Track total size of shed items
+
             for (let i = 0; i < itemsToActuallyShed; i++) {
                 const itemThreeMesh = attachedItems[i];
+                totalShedSize += itemThreeMesh.userData.size; // Add to total shed size
                 
                 // Get world position and quaternion before detaching
                 const worldPosition = new THREE.Vector3();
@@ -1993,7 +1996,7 @@
                 shedItemBody.position.copy(worldPosition);
                 shedItemBody.quaternion.copy(worldQuaternion);
                 shedItemBody.userData = { threeMesh: itemThreeMesh };
-                world.addBody(shedItemBody); // Use world.addBody for cannon-es
+                world.addBody(shedItemBody);
                 physicsBodies.push(shedItemBody);
                 console.log("Shed item re-added to physics world.");
 
@@ -2008,13 +2011,15 @@
                 // Create particles for shedding
                 createParticles(worldPosition, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'shed');
 
-                // Katamari does not shrink when shedding items
-
                 // Update UI and Katamari visual/physics size
                 itemsCollectedCount--;
                 itemsCollectedUI.textContent = itemsCollectedCount;
-                updateKatamariVisualsAndPhysics();
             }
+
+            // Reduce Katamari size proportionally to shed items
+            katamariRadius = Math.max(2, katamariRadius - (totalShedSize * 0.5)); // Reduce by half the total size, minimum radius 2
+            updateKatamariVisualsAndPhysics();
+
             console.log("Finished shedding items.");
         }
 
