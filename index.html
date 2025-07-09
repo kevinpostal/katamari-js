@@ -2,20 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI-Powered Katamari World</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Katamari World</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --king-face-url: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cGF0aCBkPSJNNTAsNC41QTEwLDggMCAwIDEgNjAsMTIgNDUsNDUgMCAxIDEgNSw1MCA0NSw0NSAwIDAgMSA1MCw0LjVaIiBmaWxsPSIjNjcwYWRkIi8+PHBhdGggZD0iTTUwLDQ1QTUsNSAwIDAgMSw1NSw1MCA1LDUgMCAwIDEgNTAsNTUgNSw1IDAgMCAxIDQ1LDUwIDUsNSAwIDAgMSA1MCw0NVoiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNNzUsMzBBNSw1IDAgMSAxIDY1LDMwIDUsNSAwIDAgMSA3NSwzMFoiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNMjUsMzBBNSw1IDAgMSAxIDM1LDMwIDUsNSAwIDAgMSAyNSwzMFoiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNNTAsNzBBMTUsMTIgMCAwIDEgNjUsNzUgMTUsMTIgMCAwIDEgNTAsODAgMTUsMTIgMCAwIDEgMzUsNzUgMTUsMTIgMCAwIDEgNTAsNzBaIiBmaWxsPSIjZmYwMDQ3Ii8+PC9zdmc+');
+        }
+
         body {
             margin: 0;
             overflow: hidden;
             background-color: #000;
-            font-family: 'Inter', 'Arial', sans-serif;
+            font-family: 'Press Start 2P', 'Arial', sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             color: white;
-            /* Prevent text selection on touch devices */
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             -khtml-user-select: none;
@@ -27,9 +33,9 @@
             display: block;
             width: 100%;
             height: 100%;
-            touch-action: none; /* Prevent browser touch gestures like pull-to-refresh */
+            touch-action: none;
         }
-        #loading-overlay {
+        .overlay {
             position: absolute;
             top: 0;
             left: 0;
@@ -37,17 +43,51 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.9);
             color: white;
-            display: none; /* Hidden by default, shown when loading */
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            font-size: 2.5em;
+            text-align: center;
             z-index: 100;
-            text-shadow: 0 0 15px rgba(255,255,255,0.8);
+        }
+        #start-screen {
+            padding: 20px;
+        }
+        #start-screen h1 {
+            font-size: 3em;
+            color: #FFD700;
+            text-shadow: 0 0 15px #FFD700;
+            margin-bottom: 20px;
             animation: pulse 2s infinite alternate;
         }
+        #start-screen p {
+            font-size: 1em;
+            max-width: 600px;
+            line-height: 1.5;
+            margin-bottom: 40px;
+        }
+        #start-button {
+            font-family: 'Press Start 2P', 'Arial', sans-serif;
+            font-size: 1.5em;
+            padding: 15px 30px;
+            background-color: #4CAF50;
+            color: white;
+            border: 3px solid white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+        #start-button:hover {
+            background-color: #66BB6A;
+            transform: scale(1.1);
+        }
+        #loading-overlay {
+            display: none; /* Hidden by default */
+            font-size: 2em;
+            text-shadow: 0 0 15px rgba(255,255,255,0.8);
+        }
         @keyframes pulse {
-            0% { opacity: 0.7; transform: scale(1); }
+            0% { opacity: 0.8; transform: scale(1); }
             100% { opacity: 1; transform: scale(1.05); }
         }
         #game-ui {
@@ -57,11 +97,12 @@
             background-color: rgba(0, 0, 0, 0.6);
             padding: 10px 15px;
             border-radius: 8px;
-            font-size: 1.1em;
+            font-size: 12px;
             z-index: 10;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 8px;
+            border: 2px solid rgba(255,255,255,0.3);
         }
         #progress-container {
             width: 200px;
@@ -69,31 +110,37 @@
             background-color: rgba(255, 255, 255, 0.2);
             border-radius: 10px;
             overflow: hidden;
-            margin-top: 10px;
+            margin-top: 5px;
+            border: 1px solid rgba(255,255,255,0.4);
         }
         #progress-bar {
             height: 100%;
             width: 0%;
-            background-color: #4CAF50;
+            background: linear-gradient(90deg, #4CAF50, #81C784);
             border-radius: 10px;
             transition: width 0.1s ease-out;
         }
         #message-overlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.8);
             padding: 30px;
             border-radius: 15px;
-            text-align: center;
-            font-size: 2em;
+            font-size: 1.5em;
             font-weight: bold;
             color: #FFD700;
-            display: none; /* Hidden by default, shown on win */
+            display: none; /* Hidden by default */
             z-index: 100;
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-            cursor: pointer; /* Indicate it's clickable to restart */
+            cursor: pointer;
+        }
+        #message-overlay::before {
+            content: '';
+            display: block;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 20px;
+            background-image: var(--king-face-url);
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
         }
         #controls-info {
             position: absolute;
@@ -101,9 +148,9 @@
             left: 50%;
             transform: translateX(-50%);
             background-color: rgba(0, 0, 0, 0.6);
-            padding: 10px 15px;
+            padding: 8px 12px;
             border-radius: 8px;
-            font-size: 0.9em;
+            font-size: 10px;
             color: #ccc;
             z-index: 10;
             text-align: center;
@@ -115,10 +162,10 @@
             padding: 8px 12px;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 0.9em;
+            font-size: 10px;
             margin-top: 10px;
             transition: background-color 0.2s ease;
-            display: none; /* Hidden by default, shown only on mobile */
+            display: none; /* Hidden by default */
         }
         #gyro-button:hover {
             background-color: #0056b3;
@@ -132,89 +179,80 @@
     </style>
 </head>
 <body>
-    <div id="loading-overlay">Generating a new universe... ✨</div>
-    <div id="game-ui">
+    <div id="start-screen" class="overlay">
+        <h1>Katamari World</h1>
+        <p>The King of All Cosmos has had a little... accident. It's up to you, the Prince, to roll up everything and make new stars! Use W,A,S,D or Swipe to roll!</p>
+        <button id="start-button">Start Rolling!</button>
+    </div>
+
+    <div id="loading-overlay" class="overlay">Generating a new universe... ✨</div>
+    
+    <div id="game-ui" style="display: none;">
         <div>Size: <span id="katamari-size">2.00m</span></div>
         <div>Speed: <span id="katamari-speed">0.00m/s</span></div>
-        <div>Items Collected: <span id="items-collected">0</span></div>
+        <div>Items: <span id="items-collected">0</span></div>
         <div id="progress-container">
             <div id="progress-bar"></div>
         </div>
-        <div>Target Size: <span id="target-size">100.00m</span></div>
+        <div>Target: <span id="target-size">100.00m</span></div>
         <button id="gyro-button">Toggle Gyro</button>
     </div>
-    <div id="controls-info">
-        <p>Use <b>W, A, S, D</b> or <b>Arrow Keys</b> to move the Katamari.</p>
-        <p><b>Swipe</b> on screen to move on mobile.</p>
-        <p>Press <b>R</b> to reset Katamari position. Press <b>Space</b> to generate a new world.</p>
+
+    <div id="controls-info" style="display: none;">
+        <p><b>W,A,S,D/Arrows/Swipe:</b> Move | <b>R:</b> Reset | <b>Space:</b> New World</p>
     </div>
-    <div id="message-overlay"></div>
 
-    <!-- Three.js Library -->
+    <div id="message-overlay" class="overlay"></div>
+
+    <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
-    <!-- Tone.js Library for Audio Synthesis (Loaded globally) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
-
     <script type="module">
-        // Cannon-ES Library for Physics (Moved into the main module script)
         import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js';
 
         // --- SCENE/PHYSICS SETUP ---
-        let scene, camera, renderer, world;
+        let scene, camera, renderer, world, starfield;
         let katamari, ground, groundBody;
-        let itemsToCollect = [], physicsBodies = []; // physicsBodies will now only store item bodies
-        let mountains = []; // Array to store mountain objects
+        let itemsToCollect = [], physicsBodies = [];
+        let mountains = [];
         let katamariRadius = 2, targetKatamariSize = 100, itemsCollectedCount = 0;
-        let rollingSynth, collectionSynth, shedSound; // Tone.js synthesizers
+        let rollingSynth, collectionSynth, shedSound, bumpSynth;
         const keys = {}, clock = new THREE.Clock();
-        // moveSpeed for direct Three.js movement, damping for item physics
-        const moveSpeed = 15, damping = 0.1, timeStep = 1 / 60; 
+        const moveSpeed = 15, timeStep = 1 / 60; 
         let currentLevel = 1;
-        let isGeneratingLevel = false; // Flag to prevent physics updates during level generation
-        let smoothedSpeed = 0; // New variable for smoothing camera FOV changes
-        let currentTheme; // Store the current theme to regenerate items
+        let isGeneratingLevel = false;
+        let smoothedSpeed = 0;
+        let currentTheme;
 
-        // Cooldowns
+        // --- COOLDOWNS & EFFECTS ---
         let lastCollectionSoundTime = 0;
-        const collectionSoundCooldown = 0.05; // 0.05 seconds cooldown
-        let lastShedTime = 0; // New variable to track last shed time
-        const shedCooldown = 1000; // 1 second cooldown for shedding items
+        const collectionSoundCooldown = 0.05;
+        let lastShedTime = 0;
+        const shedCooldown = 1000;
+        let lastBumpSoundTime = 0;
+        const bumpSoundCooldown = 0.1;
+        let wobble = { active: false, time: 0, duration: 0.3, magnitude: 0.1 };
 
-        // Dynamic item generation variables
+        // --- DYNAMIC GENERATION ---
         let lastGenerationPosition = new THREE.Vector3();
-        const generationDistanceThreshold = 50; // Generate new items every 50 units of travel
-        const cleanupDistanceThreshold = 200; // Remove items beyond 200 units from Katamari
-        const mapBoundary = 240; // Max X and Z coordinate for item generation to stay on map
-        const physicsActiveDistance = 100; // Distance from Katamari within which physics bodies are always active
-
-        // Item fade-in duration in milliseconds
+        const generationDistanceThreshold = 50;
+        const cleanupDistanceThreshold = 200;
+        const mapBoundary = 240;
+        const physicsActiveDistance = 100;
         const itemFadeDuration = 1000; 
 
-        // Global frustum for visibility checks
+        // --- CORE COMPONENTS ---
         const frustum = new THREE.Frustum();
-
-        // Katamari physics body
         let katamariBody;
-
-        // Particles array
         let particles = [];
 
-        // --- Touch Input Variables ---
-        const touchInput = {
-            startX: 0,
-            startY: 0,
-            currentX: 0,
-            currentY: 0,
-            active: false
-        };
-        // Make touch deadzone screen-size relative
+        // --- INPUT VARIABLES ---
+        const touchInput = { startX: 0, startY: 0, currentX: 0, currentY: 0, active: false };
         const touchDeadZone = Math.min(30, window.innerWidth * 0.05); 
-        const touchSensitivity = 0.5; // Adjust this value to change touch responsiveness
-
-        // --- Gyroscope Variables ---
+        const touchSensitivity = 0.5;
         let useGyroscope = false;
-        let gyro = { alpha: 0, beta: 0, gamma: 0 }; // Store latest gyro data
-        const gyroSensitivity = 0.3; // Adjust for more/less sensitive gyro controls
+        let gyro = { alpha: 0, beta: 0, gamma: 0 };
+        const gyroSensitivity = 0.3;
 
         // --- UI ELEMENTS ---
         const katamariSizeUI = document.getElementById('katamari-size');
@@ -225,22 +263,15 @@
         const messageOverlay = document.getElementById('message-overlay');
         const loadingOverlay = document.getElementById('loading-overlay');
         const gyroButton = document.getElementById('gyro-button');
-
+        const startButton = document.getElementById('start-button');
+        const startScreen = document.getElementById('start-screen');
+        const gameUI = document.getElementById('game-ui');
+        const controlsInfo = document.getElementById('controls-info');
 
         // --- INIT ---
-        async function init() {
-            // Debugging: Check Tone object
-            console.log("Tone object after script load:", Tone);
-            console.log("Type of Tone.NoiseSynth:", typeof Tone.NoiseSynth);
-            console.log("Type of Tone.Synth:", typeof Tone.Synth);
-            console.log("Type of Tone.MembraneSynth:", typeof Tone.MembraneSynth);
-            // Debugging: Check CANNON object
-            console.log("CANNON object after module import:", CANNON);
-            console.log("Type of CANNON.World:", typeof CANNON.World);
-
-
+        function init() {
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 2000);
             camera.position.set(0, 15, 30);
             camera.lookAt(0, 0, 0);
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -249,16 +280,12 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
 
-            // Physics world setup (using CANNON from cannon-es)
-            world = new CANNON.World();
-            world.gravity.set(0, -20, 0); // Increased gravity for faster falling
+            world = new CANNON.World({ gravity: new CANNON.Vec3(0, -20, 0) });
             world.broadphase = new CANNON.SAPBroadphase(world);
-            world.solver = new CANNON.GSSolver();
-            world.solver.iterations = 7; // Reduced for performance
+            world.solver.iterations = 7;
             world.defaultContactMaterial.friction = 0.7;
             world.defaultContactMaterial.restitution = 0.3;
 
-            // Lighting
             scene.add(new THREE.AmbientLight(0x404040));
             const hemiLight = new THREE.HemisphereLight(0xADD8E6, 0x8B4513, 0.8);
             scene.add(hemiLight);
@@ -267,393 +294,246 @@
             dirLight.castShadow = true;
             Object.assign(dirLight.shadow.camera, { top: 50, bottom: -50, left: -50, right: 50 });
             dirLight.shadow.mapSize.width = 2048;
-            dirLight.shadow.height = 2048;
+            dirLight.shadow.mapSize.height = 2048;
             dirLight.shadow.bias = -0.0005;
             scene.add(dirLight);
 
-            // Initialize Tone.js synths
-            rollingSynth = new Tone.NoiseSynth({
-                noise: { type: "white" },
-                envelope: { attack: 0.01, decay: 0.1, sustain: 1, release: 0.1 }
-            }).toDestination();
-            rollingSynth.volume.value = -30; // Start quiet
-
-            collectionSynth = new Tone.Synth({
-                oscillator: { type: "sine" },
-                envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
-            }).toDestination();
-            collectionSynth.volume.value = -10; // Default volume for collection sound
-
-            shedSound = new Tone.MembraneSynth({
-                pitchDecay: 0.05,
-                octaves: 2,
-                envelope: {
-                    attack: 0.001,
-                    decay: 0.2,
-                    sustain: 0.01,
-                    release: 0.2,
-                    attackCurve: "exponential"
-                },
-                oscillator: { type: "sine" },
-                volume: -15
-            }).toDestination();
-
-            // Keyboard event listeners
+            createStarfield();
+            
+            // Event listeners are set up once
             window.addEventListener('keydown', e => {
                 keys[e.key.toLowerCase()] = true;
                 if (e.key.toLowerCase() === ' ') generateNewLevel();
                 else if (e.key.toLowerCase() === 'r') resetKatamariPosition();
             });
             window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-            
-            // Touch event listeners for mobile control
             renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
             renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
             renderer.domElement.addEventListener('touchend', onTouchEnd);
-
-            // Gyroscope button listener
             gyroButton.addEventListener('click', toggleGyroscope);
-
-            // Set up gyroscope button visibility
-            setupGyroButtonVisibility();
-
             window.addEventListener('resize', onWindowResize);
-            messageOverlay.addEventListener('click', generateNewLevel); // Click to restart/next level
-
-            console.log("Calling generateNewLevel from init...");
-            await generateNewLevel(); // Initial level generation
-            console.log("generateNewLevel completed. Starting animation loop.");
-            animate(); // Start the game loop
+            messageOverlay.addEventListener('click', () => generateNewLevel());
+            startButton.addEventListener('click', startGame);
         }
 
-        // --- Touch Input Handlers ---
-        function onTouchStart(event) {
-            event.preventDefault(); // Prevent scrolling/zooming on the canvas
-            touchInput.active = true;
-            touchInput.startX = event.touches[0].clientX;
-            touchInput.startY = event.touches[0].clientY;
-            touchInput.currentX = touchInput.startX;
-            touchInput.currentY = touchInput.startY;
+        async function startGame() {
+            startScreen.style.display = 'none';
+            gameUI.style.display = 'flex';
+            controlsInfo.style.display = 'block';
+
+            // Initialize Tone.js on first user interaction
+            await Tone.start();
+            console.log("Audio context started.");
+
+            const rollingFilter = new Tone.AutoFilter("4n").toDestination().start();
+            rollingSynth = new Tone.NoiseSynth({
+                noise: { type: "brown" }, // Changed to brown noise
+                envelope: { attack: 0.1, decay: 0.2, sustain: 1, release: 0.1 }
+            }).connect(rollingFilter);
+            rollingSynth.volume.value = -35; // Start quieter
+            
+            collectionSynth = new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination();
+            collectionSynth.volume.value = -10;
+            shedSound = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 2, envelope: { attack: 0.001, decay: 0.2, sustain: 0.01, release: 0.2, attackCurve: "exponential" }, oscillator: { type: "sine" }, volume: -15 }).toDestination();
+            bumpSynth = new Tone.Synth({ oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.05, sustain: 0, release: 0.1 }, volume: -20 }).toDestination();
+
+            setupGyroButtonVisibility();
+            await generateNewLevel();
+            animate();
         }
 
-        function onTouchMove(event) {
-            event.preventDefault(); // Prevent scrolling/zooming on the canvas
-            if (touchInput.active) {
-                touchInput.currentX = event.touches[0].clientX;
-                touchInput.currentY = event.touches[0].clientY;
-            }
-        }
-
-        function onTouchEnd(event) {
-            touchInput.active = false;
-            // Reset touch input when touch ends
-            touchInput.x = 0;
-            touchInput.y = 0;
-            touchInput.startX = 0;
-            touchInput.startY = 0;
-            touchInput.currentX = 0;
-            touchInput.currentY = 0;
-        }
-
-        // --- Gyroscope Control ---
-        function handleDeviceOrientation(event) {
-            // gamma: -90 to +90 (front-to-back tilt)
-            // beta: -180 to +180 (left-to-right tilt)
-            // alpha: 0 to 360 (compass direction) - not used for movement
-            gyro.gamma = event.gamma;
-            gyro.beta = event.beta;
-        }
-
+        // --- TOUCH & GYRO ---
+        function onTouchStart(event) { event.preventDefault(); touchInput.active = true; touchInput.startX = event.touches[0].clientX; touchInput.startY = event.touches[0].clientY; touchInput.currentX = touchInput.startX; touchInput.currentY = touchInput.startY; }
+        function onTouchMove(event) { event.preventDefault(); if (touchInput.active) { touchInput.currentX = event.touches[0].clientX; touchInput.currentY = event.touches[0].clientY; } }
+        function onTouchEnd() { touchInput.active = false; }
+        function handleDeviceOrientation(event) { gyro.gamma = event.gamma; gyro.beta = event.beta; }
         function toggleGyroscope() {
             if (useGyroscope) {
-                // Turn off gyroscope
                 window.removeEventListener('deviceorientation', handleDeviceOrientation);
                 useGyroscope = false;
                 gyroButton.classList.remove('active');
                 gyroButton.textContent = 'Toggle Gyro';
-                console.log("Gyroscope controls OFF");
             } else {
-                // Request permission for iOS 13+
-                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    DeviceOrientationEvent.requestPermission()
-                        .then(permissionState => {
-                            if (permissionState === 'granted') {
-                                window.addEventListener('deviceorientation', handleDeviceOrientation);
-                                useGyroscope = true;
-                                gyroButton.classList.add('active');
-                                gyroButton.textContent = 'Gyro ON';
-                                console.log("Gyroscope controls ON (permission granted)");
-                            } else {
-                                console.warn("Permission for device orientation denied.");
-                                alert("Permission for gyroscope was denied. Please allow motion and orientation access in your device settings for gyroscope controls.");
-                            }
-                        })
-                        .catch(error => {
-                            console.error("Error requesting device orientation permission:", error);
-                            alert("Could not enable gyroscope. Ensure your device supports it and allows motion and orientation access.");
-                        });
-                } else {
-                    // For non-iOS 13+ devices, just add the listener
+                const permissionHandler = () => {
                     window.addEventListener('deviceorientation', handleDeviceOrientation);
                     useGyroscope = true;
                     gyroButton.classList.add('active');
                     gyroButton.textContent = 'Gyro ON';
-                    console.log("Gyroscope controls ON (no permission needed)");
+                };
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(state => state === 'granted' ? permissionHandler() : alert("Gyroscope permission denied."))
+                        .catch(err => alert("Could not enable gyroscope."));
+                } else {
+                    permissionHandler();
                 }
             }
         }
-
-        // Function to determine if on a mobile device and show/hide gyro button
         function setupGyroButtonVisibility() {
-            // Check for touch capability OR DeviceOrientationEvent support
-            if (window.matchMedia("(pointer: coarse)").matches || (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) {
+            if (window.matchMedia("(pointer: coarse)").matches || 'DeviceOrientationEvent' in window) {
                 gyroButton.style.display = 'block';
-            } else if (window.DeviceOrientationEvent) { // For non-iOS devices that support DeviceOrientationEvent without permission
-                gyroButton.style.display = 'block';
-            }
-            else {
+            } else {
                 gyroButton.style.display = 'none';
             }
         }
 
-
-        // --- LEVEL THEMING ---
+        // --- LEVEL GENERATION ---
         async function generateLevelTheme() {
-            console.log("Starting generateLevelTheme...");
             loadingOverlay.style.display = 'flex';
             const themes = [
-                {
-                    themeName: "Our Green Earth",
-                    story: "The King of All Cosmos demands a pristine Earth! Roll up all the litter and grow your Katamari!",
-                    items: ["Car", "Tree", "House", "Rock", "Bush", "Bench", "Lamp Post", "Trash Can", "Mailbox"],
-                    groundColor: "#4CAF50", skyColor: "#87CEEB",
-                    baseTargetSize: 100 // Base target for this theme
-                },
-                {
-                    themeName: "Urban Jungle",
-                    story: "The city is a mess! Clean up the streets and grow your Katamari to skyscraper size!",
-                    items: ["Car", "Lamp Post", "Trash Can", "Bench", "Mailbox", "Fire Hydrant", "Traffic Cone", "Hot Dog Stand"],
-                    groundColor: "#607D8B", skyColor: "#B0C4DE",
-                    baseTargetSize: 200 // Base target for this theme
-                },
-                {
-                    themeName: "Cosmic Debris",
-                    story: "The cosmos is cluttered! Roll up space junk and form a new star!",
-                    items: ["Asteroid", "Satellite", "Space Debris", "Comet Fragment", "Moon Rock", "Star Dust Cluster"],
-                    groundColor: "#2C3E50", skyColor: "#0A0A2A",
-                    baseTargetSize: 400 // Base target for this theme
-                }
+                { name: "Our Green Earth", items: ["Car", "Tree", "House", "Rock", "Bush", "Bench", "Lamp Post", "Trash Can", "Mailbox"], ground: "#4CAF50", sky: "#87CEEB", target: 100 },
+                { name: "Urban Jungle", items: ["Car", "Lamp Post", "Trash Can", "Bench", "Mailbox", "Fire Hydrant", "Traffic Cone", "Hot Dog Stand"], ground: "#607D8B", sky: "#B0C4DE", target: 200 },
+                { name: "Cosmic Debris", items: ["Asteroid", "Satellite", "Space Debris", "Comet Fragment", "Moon Rock", "Star Dust Cluster"], ground: "#2C3E50", sky: "#0A0A2A", target: 400 }
             ];
-            const theme = themes[(currentLevel - 1) % themes.length]; // Cycle through themes
-            loadingOverlay.textContent = `Generating ${theme.themeName}... ✨`; // Update loading text
-            await new Promise(r => setTimeout(r, 1500)); // Simulate loading time
+            const theme = themes[(currentLevel - 1) % themes.length];
+            loadingOverlay.textContent = `Generating ${theme.name}... ✨`;
+            await new Promise(r => setTimeout(r, 500)); // Shorter wait
             loadingOverlay.style.display = 'none';
-            console.log("Finished generateLevelTheme. Selected theme:", theme.themeName);
             return theme;
         }
 
-        // --- LEVEL CREATION ---
         async function generateNewLevel() {
-            console.log("Starting generateNewLevel...");
-            isGeneratingLevel = true; // Set flag at the start of level generation
+            isGeneratingLevel = true;
             stopRollingSound();
-            messageOverlay.style.display = 'none'; // Hide win message
+            messageOverlay.style.display = 'none';
 
-            // Clean up previous level's objects
-            console.log("Cleaning up previous level objects...");
-            if (katamari) scene.remove(katamari);
-            if (ground) scene.remove(ground);
-            itemsToCollect.forEach(item => scene.remove(item));
-            physicsBodies.forEach(body => world.removeBody(body)); // Use world.removeBody for cannon-es
-            
-            // Re-initialize Cannon.js world for items
-            console.log("Re-initializing physics world...");
-            world = new CANNON.World();
-            world.gravity.set(0, -20, 0); // Increased gravity for faster falling
+            // Full physics world reset
+            world = new CANNON.World({ gravity: new CANNON.Vec3(0, -20, 0) });
             world.broadphase = new CANNON.SAPBroadphase(world);
-            world.solver = new CANNON.GSSolver();
-            world.solver.iterations = 7; // Reduced for performance
+            world.solver.iterations = 7;
             world.defaultContactMaterial.friction = 0.7;
             world.defaultContactMaterial.restitution = 0.3;
 
+            // Clean up scene
+            if (katamari) scene.remove(katamari);
+            if (ground) scene.remove(ground);
+            itemsToCollect.forEach(item => scene.remove(item));
+            mountains.forEach(m => scene.remove(m));
+            
             itemsToCollect = [];
             physicsBodies = [];
-            mountains = []; // Clear mountains array on new level generation
+            mountains = [];
             itemsCollectedCount = 0;
             itemsCollectedUI.textContent = itemsCollectedCount;
 
-            currentTheme = await generateLevelTheme(); // Store the theme globally
-            // Difficulty scaling: target size increases with level
-            const difficultyFactor = 1 + (currentLevel - 1) * 0.5; // 0.5x increase per level
-            targetKatamariSize = currentTheme.baseTargetSize * difficultyFactor; 
+            currentTheme = await generateLevelTheme();
+            const difficultyFactor = 1 + (currentLevel - 1) * 0.5;
+            targetKatamariSize = currentTheme.target * difficultyFactor; 
             targetSizeUI.textContent = targetKatamariSize.toFixed(2) + 'm';
 
-            scene.background = new THREE.Color(currentTheme.skyColor);
-            scene.fog = new THREE.Fog(currentTheme.skyColor, 50, 200);
+            scene.background = new THREE.Color(currentTheme.sky);
+            scene.fog = new THREE.Fog(currentTheme.sky, 50, 200);
+            starfield.visible = currentTheme.name === 'Cosmic Debris';
+
             createEnvironment(currentTheme);
-            console.log("Environment created.");
 
-            // Ground (still has a Cannon.js body to interact with items)
-            console.log("Creating ground...");
-            const groundColor1 = new THREE.Color(currentTheme.groundColor);
-            const groundColor2 = groundColor1.clone().lerp(new THREE.Color(0x000000), 0.1); // Slightly darker variant
-            const groundTexture = generateGroundTexture(groundColor1, groundColor2);
-            const groundMat = new THREE.MeshLambertMaterial({ map: groundTexture });
-
-            const groundGeo = new THREE.PlaneGeometry(500, 500); // Larger ground
-            ground = new THREE.Mesh(groundGeo, groundMat);
+            const groundColor1 = new THREE.Color(currentTheme.ground);
+            const groundColor2 = groundColor1.clone().lerp(new THREE.Color(0x000000), 0.1);
+            const groundMat = new THREE.MeshLambertMaterial({ map: generateGroundTexture(groundColor1, groundColor2) });
+            ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMat);
             ground.rotation.x = -Math.PI / 2;
             ground.receiveShadow = true;
             scene.add(ground);
-            groundBody = new CANNON.Body({ mass: 0 });
-            groundBody.addShape(new CANNON.Plane());
+            groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
             groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-            world.addBody(groundBody); // Use world.addBody for cannon-es
-            console.log("Ground created and added to physics world.");
+            world.addBody(groundBody);
 
-            // Katamari (now purely a Three.js object for movement)
-            console.log("Creating Katamari...");
-            katamariRadius = 2; // Reset radius for new level
+            katamariRadius = 2;
             katamari = new THREE.Group();
-            const katGeo = new THREE.SphereGeometry(katamariRadius, 32, 32);
-            const katamariTexture = new THREE.CanvasTexture(generateKatamariTexture());
-            const katMat = new THREE.MeshStandardMaterial({
-                map: katamariTexture, roughness: 0.6, metalness: 0.1
-            });
-            const katamariBall = new THREE.Mesh(katGeo, katMat);
+            const katamariBall = new THREE.Mesh(
+                new THREE.SphereGeometry(katamariRadius, 32, 32),
+                new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(generateKatamariTexture()), roughness: 0.6, metalness: 0.1 })
+            );
             katamariBall.castShadow = true;
             katamariBall.name = 'core';
             katamari.add(katamariBall);
-            katamari.position.y = katamariRadius; // Keep it on the ground
-            katamari.scale.set(1, 1, 1); // Initial scale
             scene.add(katamari);
             
-            // Create Katamari physics body
-            const katamariShape = new CANNON.Sphere(katamariRadius);
             katamariBody = new CANNON.Body({
-                mass: 100, // High mass so it doesn't move easily by collisions
+                mass: 100,
                 position: new CANNON.Vec3(0, katamariRadius, 0),
-                shape: katamariShape,
-                linearDamping: 0.3, // Reduced linear damping for faster falling
-                angularDamping: 0.4 // To slow rotation
+                shape: new CANNON.Sphere(katamariRadius),
+                linearDamping: 0.3,
+                angularDamping: 0.4
             });
-            world.addBody(katamariBody); // Use world.addBody for cannon-es
-            console.log("Katamari created and added to physics world.");
+            world.addBody(katamariBody);
 
-            lastGenerationPosition.copy(katamari.position); // Initialize generation position
-            console.log("Creating initial collectible items...");
-            createCollectibleItems(200, currentTheme.items, new THREE.Vector3(0,0,0), 180); // Initial generation around origin (reduced count)
-            console.log("Initial collectible items created.");
-            isGeneratingLevel = false; // Clear flag after level generation is complete
-            console.log("generateNewLevel finished.");
+            lastGenerationPosition.copy(katamari.position);
+            createCollectibleItems(200, currentTheme.items, new THREE.Vector3(0,0,0), 180);
+            isGeneratingLevel = false;
         }
 
         function createEnvironment(theme) {
-            console.log("createEnvironment: Removing old environment objects...");
-            // Remove old environment objects
-            scene.children.filter(obj => obj.userData.isEnvironment).forEach(obj => scene.remove(obj));
-            mountains = []; // Ensure mountains array is cleared
-            console.log("createEnvironment: Old environment objects removed.");
-
-            // Clouds
-            console.log("createEnvironment: Creating clouds...");
             const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, roughness: 1 });
             for (let i = 0; i < 15; i++) {
-                const cloudGeo = new THREE.SphereGeometry(Math.random() * 8 + 5, 16, 16);
-                const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+                const cloud = new THREE.Mesh(new THREE.SphereGeometry(Math.random() * 8 + 5, 16, 16), cloudMat);
                 cloud.position.set((Math.random() - 0.5) * 400, 50 + Math.random() * 30, (Math.random() - 0.5) * 400);
-                cloud.userData.isEnvironment = true;
                 scene.add(cloud);
+                mountains.push(cloud); // Use mountains array for all env objects to be cleaned
             }
-            console.log("createEnvironment: Clouds created.");
 
-            // Mountains (or other distant scenery based on theme)
-            console.log("createEnvironment: Creating mountains...");
-            const mountainColor = new THREE.Color(theme.groundColor).lerp(new THREE.Color(0x000000), 0.2);
+            const mountainColor = new THREE.Color(theme.ground).lerp(new THREE.Color(0x000000), 0.2);
             const mountainMat = new THREE.MeshStandardMaterial({ color: mountainColor, roughness: 0.8 });
-            const safeZoneRadius = 50; // Define a radius around the origin where mountains shouldn't spawn
-
             for (let i = 0; i < 8; i++) {
                 const h = Math.random() * 50 + 30, r = Math.random() * 40 + 20;
-                const mountainGeo = new THREE.ConeGeometry(r, h, 16);
-                const mountain = new THREE.Mesh(mountainGeo, mountainMat);
+                const mountain = new THREE.Mesh(new THREE.ConeGeometry(r, h, 16), mountainMat);
                 mountain.castShadow = mountain.receiveShadow = true;
-                mountain.userData.isEnvironment = true;
-                mountain.userData.size = r; // Store the effective radius for collision
-                mountain.userData.minSizeToPass = r * 1.8; // Katamari must be at least 1.8x mountain radius to pass
-
-                let xPos, zPos;
-                let positionFound = false;
-                // Try to find a position outside the safe zone
-                while (!positionFound) {
-                    xPos = (Math.random() - 0.5) * 500;
-                    zPos = (Math.random() - 0.5) * 500;
-                    // Check if the mountain's base is outside the safe zone
-                    if (Math.sqrt(xPos * xPos + zPos * zPos) > safeZoneRadius) {
-                        positionFound = true;
-                    }
-                }
-                mountain.position.set(xPos, h / 2 - 0.1, zPos);
+                mountain.userData.size = r;
+                mountain.userData.minSizeToPass = r * 1.8;
+                let x, z;
+                do {
+                    x = (Math.random() - 0.5) * 500;
+                    z = (Math.random() - 0.5) * 500;
+                } while (Math.sqrt(x*x + z*z) < 50);
+                mountain.position.set(x, h / 2 - 0.1, z);
                 scene.add(mountain);
-                mountains.push(mountain); // Add to new mountains array
+                mountains.push(mountain);
             }
-            console.log("createEnvironment: Mountains created.");
         }
 
+        function createStarfield() {
+            const vertices = [];
+            for (let i = 0; i < 10000; i++) {
+                vertices.push(THREE.MathUtils.randFloatSpread(2000)); // x
+                vertices.push(THREE.MathUtils.randFloatSpread(2000)); // y
+                vertices.push(THREE.MathUtils.randFloatSpread(2000)); // z
+            }
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const material = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, fog: false });
+            starfield = new THREE.Points(geometry, material);
+            scene.add(starfield);
+        }
+
+        // --- TEXTURE GENERATION ---
         function generateKatamariTexture() {
             const canvas = document.createElement('canvas');
-            const size = 256;
-            canvas.width = canvas.height = size;
+            canvas.width = canvas.height = 256;
             const ctx = canvas.getContext('2d');
-
-            // Clear canvas
-            ctx.clearRect(0, 0, size, size);
-
-            // Background color for the Katamari (a base color)
             ctx.fillStyle = `hsl(${Math.random() * 360}, 70%, 50%)`;
-            ctx.fillRect(0, 0, size, size);
-
-            // Draw random "patches" to simulate collected items
-            const numPatches = 100 + Math.random() * 100;
-            for (let i = 0; i < numPatches; i++) {
-                const x = Math.random() * size;
-                const y = Math.random() * size;
-                const patchSize = 10 + Math.random() * 30; // Size of each patch
-                const shapeType = Math.random();
-
-                // Random vibrant color for the patch
-                ctx.fillStyle = `hsl(${Math.random() * 360}, 90%, ${50 + Math.random() * 20}%)`;
-                ctx.globalAlpha = 0.7 + Math.random() * 0.3; // Vary opacity
-
+            ctx.fillRect(0, 0, 256, 256);
+            for (let i = 0; i < 150; i++) {
+                ctx.fillStyle = `hsl(${Math.random() * 360}, 90%, ${60 + Math.random() * 20}%)`;
+                ctx.globalAlpha = 0.7 + Math.random() * 0.3;
                 ctx.beginPath();
-                if (shapeType < 0.5) {
-                    // Draw a rectangle
-                    ctx.fillRect(x, y, patchSize, patchSize);
+                if (Math.random() < 0.5) {
+                    ctx.fillRect(Math.random() * 256, Math.random() * 256, Math.random() * 30 + 10, Math.random() * 30 + 10);
                 } else {
-                    // Draw a circle
-                    ctx.arc(x, y, patchSize / 2, 0, Math.PI * 2);
+                    ctx.arc(Math.random() * 256, Math.random() * 256, Math.random() * 15 + 5, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
-            ctx.globalAlpha = 1; // Reset alpha
-
             return canvas;
         }
 
-        // New function to generate a repeating ground texture
         function generateGroundTexture(color1, color2) {
             const canvas = document.createElement('canvas');
-            const size = 128; // Smaller texture for tiling
-            canvas.width = canvas.height = size;
+            canvas.width = canvas.height = 128;
             const ctx = canvas.getContext('2d');
-
-            // Create a more varied, less uniform ground texture
-            for (let x = 0; x < size; x++) {
-                for (let y = 0; y < size; y++) { 
-                    // Perlin-like noise for smoother transitions
-                    const noiseVal = Math.sin(x * 0.1) * 0.5 + Math.cos(y * 0.1) * 0.5 + 1; // 0 to 2
-                    const blend = (noiseVal / 2) * 0.4 + 0.6; // Blend factor between 0.6 and 1.0
-                    
+            for (let x = 0; x < 128; x++) {
+                for (let y = 0; y < 128; y++) { 
+                    const noise = Math.sin(x * 0.1) * 0.5 + Math.cos(y * 0.1) * 0.5 + 1;
+                    const blend = (noise / 2) * 0.4 + 0.6;
                     const r = Math.floor(color1.r * 255 * blend + color2.r * 255 * (1 - blend));
                     const g = Math.floor(color1.g * 255 * blend + color2.g * 255 * (1 - blend));
                     const b = Math.floor(color1.b * 255 * blend + color2.b * 255 * (1 - blend));
@@ -661,1089 +541,515 @@
                     ctx.fillRect(x, y, 1, 1);
                 }
             }
-
             const texture = new THREE.CanvasTexture(canvas);
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(50, 50); // Repeat many times over the large ground plane
-            texture.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Improve texture quality at oblique angles
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(50, 50);
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
             return texture;
         }
 
-        // Modified createCollectibleItems to spawn around a center position
-        function createCollectibleItems(count, itemNames, centerPosition = new THREE.Vector3(0,0,0), spawnRadius = 100) {
-            console.log(`createCollectibleItems: Attempting to create ${count} items.`);
-            if (!itemNames || itemNames.length === 0) {
-                console.warn("createCollectibleItems: itemNames array is empty or undefined. Cannot create items.");
-                return;
-            }
-            // Updated item colors to be more vibrant and diverse
+        // --- ITEM CREATION (REFACTORED) ---
+        function _createGrouped(geometries, size, color) {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true, opacity: 0 });
+            geometries.forEach(({geo, pos, rot}) => {
+                const mesh = new THREE.Mesh(geo, mat);
+                if (pos) mesh.position.copy(pos);
+                if (rot) mesh.rotation.copy(rot);
+                mesh.castShadow = mesh.receiveShadow = true;
+                group.add(mesh);
+            });
+            return group;
+        }
+
+        const itemPrototypes = {
+            'Car': {
+                createMesh(size, color) {
+                    const bodyGeo = new THREE.BoxGeometry(size * 2, size * 0.8, size);
+                    const cabinGeo = new THREE.BoxGeometry(size * 1.2, size * 0.6, size * 0.8);
+                    const wheelGeo = new THREE.CylinderGeometry(size * 0.25, size * 0.25, size * 0.2, 16);
+                    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x333, roughness: 0.8, transparent: true, opacity: 0 });
+                    const car = _createGrouped([{geo: bodyGeo}, {geo: cabinGeo, pos: new THREE.Vector3(0, size * 0.7, 0)}], size, color);
+                    [[0.7, 0.5], [-0.7, 0.5], [0.7, -0.5], [-0.7, -0.5]].forEach(([dx, dz]) => {
+                        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                        wheel.rotation.z = Math.PI / 2;
+                        wheel.position.set(size * dx, -size * 0.2, size * dz);
+                        car.add(wheel);
+                    });
+                    return car;
+                },
+                createShape: (size) => new CANNON.Box(new CANNON.Vec3(size, size * 0.4, size * 0.5)),
+                getSize: () => Math.random() * 2 + 0.8,
+                getCollectionSize: (size) => size * 2,
+            },
+            'Tree': {
+                createMesh(size, color) {
+                    const group = new THREE.Group();
+                    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.7, transparent: true, opacity: 0 });
+                    const foliageMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.5, transparent: true, opacity: 0 });
+                    
+                    const trunkGeo = new THREE.CylinderGeometry(size * 0.1, size * 0.15, size, 8);
+                    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                    trunk.position.y = size * 0.5;
+                    trunk.castShadow = trunk.receiveShadow = true;
+                    
+                    const foliageGeo = new THREE.IcosahedronGeometry(size * 0.6, 0);
+                    const foliage = new THREE.Mesh(foliageGeo, foliageMat);
+                    foliage.position.y = size * 1.2;
+                    foliage.castShadow = foliage.receiveShadow = true;
+
+                    group.add(trunk, foliage);
+                    return group;
+                },
+                createShape: (size) => new CANNON.Cylinder(size * 0.15, size * 0.6, size * 1.5, 8),
+                getSize: () => Math.random() * 3 + 1.5,
+                getCollectionSize: (size) => size * 1.5,
+            },
+            'House': {
+                createMesh(size, color) {
+                    const bodyGeo = new THREE.BoxGeometry(size * 1.5, size, size * 1.5);
+                    const roofGeo = new THREE.ConeGeometry(size * 1.2, size * 0.8, 4);
+                    return _createGrouped([
+                        { geo: bodyGeo },
+                        { geo: roofGeo, pos: new THREE.Vector3(0, size * 0.9, 0), rot: new THREE.Euler(0, Math.PI / 4, 0) }
+                    ], size, color);
+                },
+                createShape: (size) => new CANNON.Box(new CANNON.Vec3(size * 0.75, size * 0.75, size * 0.75)),
+                getSize: () => Math.random() * 2 + 1,
+                getCollectionSize: (size) => size * 1.5,
+            },
+            // Add other items here...
+            'Rock': { createShape: (s) => new CANNON.Sphere(s*0.7), getSize: () => Math.random()*1.5+0.5, getCollectionSize: (s) => s, createMesh(s, c) { return new THREE.Mesh(new THREE.SphereGeometry(s*0.7, 16, 16), new THREE.MeshStandardMaterial({color:c, roughness:0.8, transparent:true, opacity:0}))}},
+            'Bush': { createShape: (s) => new CANNON.Sphere(s*0.8), getSize: () => Math.random()*1.5+0.5, getCollectionSize: (s) => s, createMesh(s, c) { return new THREE.Mesh(new THREE.SphereGeometry(s*0.8, 24, 24), new THREE.MeshStandardMaterial({color:c, roughness:0.8, transparent:true, opacity:0}))}},
+            'Bench': { createShape: (s) => new CANNON.Box(new CANNON.Vec3(s, s*0.25, s*0.25)), getSize: () => Math.random()*1.5+0.5, getCollectionSize: (s) => s, createMesh(s, c) { return new THREE.Mesh(new THREE.BoxGeometry(s*2, s*0.5, s*0.5), new THREE.MeshStandardMaterial({color:c, roughness:0.6, transparent:true, opacity:0}))}},
+            'Lamp Post': { createShape: (s) => new CANNON.Cylinder(s*0.1, s*0.1, s*3, 16), getSize: () => Math.random()*1.5+0.5, getCollectionSize: (s) => s, createMesh(s, c) { return new THREE.Mesh(new THREE.CylinderGeometry(s*0.1, s*0.1, s*3, 16), new THREE.MeshStandardMaterial({color:c, roughness:0.6, transparent:true, opacity:0}))}},
+            'Trash Can': { createShape: (s) => new CANNON.Cylinder(s*0.4, s*0.5, s*1.2, 24), getSize: () => Math.random()*1.5+0.5, getCollectionSize: (s) => s, createMesh(s, c) { return new THREE.Mesh(new THREE.CylinderGeometry(s*0.4, s*0.5, s*1.2, 24), new THREE.MeshStandardMaterial({color:c, roughness:0.6, transparent:true, opacity:0}))}},
+            'Mailbox': { createShape: (s) => new CANNON.Box(new CANNON.Vec3(s*0.4, s*0.75, s*0.25)), getSize: () => Math.random()*0.8+0.3, getCollectionSize: (s) => s*1.5, createMesh(s, c) { return _createGrouped([{geo: new THREE.CylinderGeometry(s*0.1, s*0.1, s*1.5, 8), pos: new THREE.Vector3(0, s*0.75, 0)}, {geo: new THREE.BoxGeometry(s*0.8, s*0.5, s*0.5), pos: new THREE.Vector3(0, s*1.5, 0)}], s, c)}},
+            'Fire Hydrant': { createShape: (s) => new CANNON.Cylinder(s*0.5, s*0.5, s*1.5, 16), getSize: () => Math.random()*0.7+0.3, getCollectionSize: (s) => s*1.5, createMesh(s, c) { return _createGrouped([{geo: new THREE.CylinderGeometry(s*0.4, s*0.5, s*0.3, 16), pos: new THREE.Vector3(0, s*0.15, 0)}, {geo: new THREE.CylinderGeometry(s*0.3, s*0.3, s*0.8, 16), pos: new THREE.Vector3(0, s*0.7, 0)}], s, c)}},
+            'Traffic Cone': { createShape: (s) => new CANNON.Cylinder(0, s*0.5, s*1.5, 16), getSize: () => Math.random()*0.5+0.2, getCollectionSize: (s) => s*1.5, createMesh(s, c) { return new THREE.Mesh(new THREE.ConeGeometry(s*0.5, s*1.5, 16), new THREE.MeshStandardMaterial({color:0xFFA500, roughness:0.6, transparent:true, opacity:0}))}},
+            'Hot Dog Stand': { createShape: (s) => new CANNON.Box(new CANNON.Vec3(s*0.75, s*0.5, s*0.4)), getSize: () => Math.random()*1.5+0.8, getCollectionSize: (s) => s*2, createMesh(s, c) { return _createGrouped([{geo: new THREE.BoxGeometry(s*1.5, s*0.8, s*0.8), pos: new THREE.Vector3(0, s*0.4, 0)}, {geo: new THREE.BoxGeometry(s*1.8, s*0.2, s*1), pos: new THREE.Vector3(0, s*1.1, 0)}], s, c)}},
+            'Asteroid': { createShape: (s) => new CANNON.Sphere(s), getSize: () => Math.random()*3+1, getCollectionSize: (s) => s*2, createMesh(s, c) { return new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), new THREE.MeshStandardMaterial({color:0x696969, roughness:0.9, flatShading:true, transparent:true, opacity:0}))}},
+            'Satellite': { createShape: (s) => new CANNON.Box(new CANNON.Vec3(s*1.25, s*0.25, s*0.75)), getSize: () => Math.random()*1.5+0.5, getCollectionSize: (s) => s*2.5, createMesh(s, c) { return _createGrouped([{geo: new THREE.BoxGeometry(s*0.5, s*0.5, s*1.5)}, {geo: new THREE.BoxGeometry(s*2, 0.05, s*0.8), pos: new THREE.Vector3(s*1.25, 0, 0)}, {geo: new THREE.BoxGeometry(s*2, 0.05, s*0.8), pos: new THREE.Vector3(-s*1.25, 0, 0)}], s, c)}},
+            'Space Debris': { createShape: (s) => new CANNON.Box(new CANNON.Vec3(s*0.5, s*0.5, s*0.5)), getSize: () => Math.random()*0.8+0.2, getCollectionSize: (s) => s, createMesh(s, c) { return new THREE.Mesh(new THREE.BoxGeometry(s,s,s), new THREE.MeshStandardMaterial({color:0x555, roughness:0.7, transparent:true, opacity:0}))}},
+            'Comet Fragment': { createShape: (s) => new CANNON.Sphere(s), getSize: () => Math.random()*1.2+0.4, getCollectionSize: (s) => s*1.5, createMesh(s, c) { return new THREE.Mesh(new THREE.IcosahedronGeometry(s, 1), new THREE.MeshStandardMaterial({color:0xADD8E6, roughness:0.8, flatShading:true, transparent:true, opacity:0}))}},
+            'Moon Rock': { createShape: (s) => new CANNON.Sphere(s), getSize: () => Math.random()*1.5+0.5, getCollectionSize: (s) => s*1.2, createMesh(s, c) { return new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), new THREE.MeshStandardMaterial({color:0xA9A9A9, roughness:0.9, flatShading:true, transparent:true, opacity:0}))}},
+            'Star Dust Cluster': { createShape: (s) => new CANNON.Sphere(s), getSize: () => Math.random()*0.6+0.1, getCollectionSize: (s) => s*2, createMesh(s, c) { const g = new THREE.Group(); for(let i=0;i<10;i++){ const p = new THREE.Mesh(new THREE.SphereGeometry(s*0.2, 8, 8), new THREE.MeshBasicMaterial({color:0xFFFFFF, transparent:true, opacity:0.8})); p.position.set((Math.random()-0.5)*s, (Math.random()-0.5)*s, (Math.random()-0.5)*s); g.add(p);} return g;}},
+        };
+
+        function createCollectibleItems(count, itemNames, centerPosition, spawnRadius) {
+            if (!itemNames || itemNames.length === 0) return;
             const itemColors = [0xFF6347, 0x6A5ACD, 0x3CB371, 0xFFD700, 0xBA55D3, 0x4682B4, 0xD2B48C, 0xFFA07A, 0x20B2AA, 0xFF69B4];
+            
             for (let i = 0; i < count; i++) {
                 const itemName = itemNames[Math.floor(Math.random() * itemNames.length)];
-                console.log(`Attempting to create item: ${itemName}`); 
+                const proto = itemPrototypes[itemName];
+                if (!proto) { console.warn(`Unknown item prototype: ${itemName}`); continue; }
+
+                const size = proto.getSize();
+                const color = itemColors[Math.floor(Math.random() * itemColors.length)];
+                const threeMesh = proto.createMesh(size, color);
+                const cannonShape = proto.createShape(size);
                 
-                // Initialize with a default, generic item to prevent ReferenceError
-                let threeMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x888888, transparent: true, opacity: 0 }));
-                threeMesh.userData.size = 1; // Default size
+                threeMesh.userData.size = proto.getCollectionSize(size);
+                threeMesh.userData.cannonShape = cannonShape;
                 threeMesh.castShadow = threeMesh.receiveShadow = true;
 
-                let cannonShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5)); // Default shape
-                let size = 1; // Default size, will be overwritten
-
-                let itemGroup = new THREE.Group(); // Still needed for grouped items
-
-                const color = itemColors[Math.floor(Math.random() * itemColors.length)];
-
-                switch (itemName) {
-                    case 'Car':
-                        size = Math.random() * 2 + 0.8;
-                        // Main body
-                        const carBodyGeo = new THREE.BoxGeometry(size * 2, size * 0.8, size);
-                        const carBodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true, opacity: 0 });
-                        const carBody = new THREE.Mesh(carBodyGeo, carBodyMat);
-                        carBody.castShadow = carBody.receiveShadow = true; itemGroup.add(carBody);
-
-                        // Cabin
-                        const carCabinGeo = new THREE.BoxGeometry(size * 1.2, size * 0.6, size * 0.8);
-                        const carCabinMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true, opacity: 0 });
-                        const carCabin = new THREE.Mesh(carCabinGeo, carCabinMat);
-                        carCabin.castShadow = carCabin.receiveShadow = true; carCabin.position.y = size * 0.7; itemGroup.add(carCabin);
-
-                        // Windshields (front and back)
-                        const windshieldMat = new THREE.MeshStandardMaterial({ color: 0xADD8E6, transparent: true, opacity: 0.7 });
-                        const frontWindshield = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.1, size * 0.4), windshieldMat);
-                        frontWindshield.position.set(0, size * 0.8, size * 0.4); itemGroup.add(frontWindshield);
-                        const backWindshield = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.1, size * 0.4), windshieldMat);
-                        backWindshield.position.set(0, size * 0.8, -size * 0.4); backWindshield.rotation.y = Math.PI; itemGroup.add(backWindshield);
-
-                        // Wheels
-                        const wheelGeo = new THREE.CylinderGeometry(size * 0.25, size * 0.25, size * 0.2, 16);
-                        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, transparent: true, opacity: 0 });
-                        for (const [dx, dz] of [[0.7, 0.5],[ -0.7, 0.5],[0.7, -0.5],[ -0.7, -0.5]]) {
-                            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-                            wheel.rotation.z = Math.PI / 2;
-                            wheel.position.set(size * dx, -size * 0.2, size * dz);
-                            itemGroup.add(wheel);
-                        }
-                        threeMesh = itemGroup;
-                        threeMesh.userData.size = size * 2; // Effective size for collection
-                        cannonShape = new CANNON.Box(new CANNON.Vec3(size, size * 0.4, size * 0.5));
-                        break;
-
-                    case 'Tree':
-                        // Randomly select a tree type
-                        const treeType = Math.random();
-                        if (treeType < 0.33) { // Tall and slender tree
-                            size = Math.random() * 4 + 2; // Larger size range
-                            // Trunk
-                            const trunkGeo = new THREE.CylinderGeometry(size * 0.08, size * 0.12, size * 1.2, 8);
-                            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.7, transparent: true, opacity: 0 });
-                            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-                            trunk.castShadow = trunk.receiveShadow = true;
-                            trunk.position.y = size * 0.6; itemGroup.add(trunk);
-
-                            // Foliage (cone shape for a pine-like tree)
-                            const foliageMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.5, transparent: true, opacity: 0 });
-                            const foliageGeo = new THREE.ConeGeometry(size * 0.4, size * 0.8, 16);
-                            const foliage = new THREE.Mesh(foliageGeo, foliageMat);
-                            foliage.castShadow = foliage.receiveShadow = true;
-                            foliage.position.y = size * 1.2; itemGroup.add(foliage);
-
-                            threeMesh = itemGroup;
-                            threeMesh.userData.size = size * 1.5;
-                            cannonShape = new CANNON.Cylinder(size * 0.12, size * 0.4, size * 2, 8); // Adjusted for taller shape
-                        } else if (treeType < 0.66) { // Bushy tree
-                            size = Math.random() * 2 + 1; // Medium size range
-                            // Trunk (shorter, wider)
-                            const trunkGeo = new THREE.CylinderGeometry(size * 0.15, size * 0.2, size * 0.5, 8);
-                            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.7, transparent: true, opacity: 0 });
-                            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-                            trunk.castShadow = trunk.receiveShadow = true;
-                            trunk.position.y = size * 0.25; itemGroup.add(trunk);
-
-                            // Foliage (multiple larger spheres for a bushy look)
-                            const foliageMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.5, transparent: true, opacity: 0 });
-                            for (let j = 0, n = 4 + Math.floor(Math.random() * 3); j < n; j++) {
-                                const sphereSize = size * (0.4 + Math.random() * 0.3);
-                                const foliageGeo = new THREE.SphereGeometry(sphereSize, 16, 16);
-                                const foliage = new THREE.Mesh(foliageGeo, foliageMat);
-                                foliage.castShadow = foliage.receiveShadow = true;
-                                foliage.position.set((Math.random() - 0.5) * size * 0.8, size * 0.5 + (Math.random() * size * 0.5),
-                                    (Math.random() - 0.5) * size * 0.8);
-                                itemGroup.add(foliage);
-                            }
-                            threeMesh = itemGroup;
-                            threeMesh.userData.size = size * 1.8; // Larger effective size
-                            cannonShape = new CANNON.Sphere(size * 0.9); // Approximate with a larger sphere
-                        } else { // Small sapling / shrub
-                            size = Math.random() * 1 + 0.5; // Smaller size range
-                            // Trunk (very small)
-                            const trunkGeo = new THREE.CylinderGeometry(size * 0.05, size * 0.08, size * 0.3, 6);
-                            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.7, transparent: true, opacity: 0 });
-                            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-                            trunk.castShadow = trunk.receiveShadow = true;
-                            trunk.position.y = size * 0.15; itemGroup.add(trunk);
-
-                            // Foliage (single, slightly irregular sphere)
-                            const foliageMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.5, transparent: true, opacity: 0 });
-                            const foliageGeo = new THREE.SphereGeometry(size * 0.6, 12, 12);
-                            const foliage = new THREE.Mesh(foliageGeo, foliageMat);
-                            foliage.castShadow = foliage.receiveShadow = true;
-                            foliage.position.y = size * 0.5; itemGroup.add(foliage);
-
-                            threeMesh = itemGroup;
-                            threeMesh.userData.size = size * 1.2; // Smaller effective size
-                            cannonShape = new CANNON.Sphere(size * 0.6); // Approximate with a sphere
-                        }
-                        break;
-
-                    case 'House':
-                        size = Math.random() * 2 + 1;
-                        itemGroup = new THREE.Group();
-                        // Main body
-                        const mainBodyGeo = new THREE.BoxGeometry(size * 1.5, size * 1.2, size * 1.5);
-                        const mainBodyMat = new THREE.MeshStandardMaterial({ color: 0xF5DEB3, roughness: 0.7, transparent: true, opacity: 0 });
-                        const mainBody = new THREE.Mesh(mainBodyGeo, mainBodyMat);
-                        mainBody.castShadow = mainBody.receiveShadow = true; itemGroup.add(mainBody);
-
-                        // Roof (pyramid shape)
-                        const roofGeo = new THREE.ConeGeometry(size * 1.2, size * 0.8, 4);
-                        const roofMat = new THREE.MeshStandardMaterial({ color: 0xA0522D, roughness: 0.7, transparent: true, opacity: 0 });
-                        const roof = new THREE.Mesh(roofGeo, roofMat);
-                        roof.rotation.y = Math.PI / 4; roof.position.y = size * 1.2;
-                        roof.castShadow = roof.receiveShadow = true; itemGroup.add(roof);
-
-                        // Door
-                        const doorGeo = new THREE.BoxGeometry(size * 0.3, size * 0.6, 0.05);
-                        const doorMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.6, transparent: true, opacity: 0 });
-                        const door = new THREE.Mesh(doorGeo, doorMat);
-                        door.position.set(0, -size * 0.3, size * 0.75); itemGroup.add(door);
-
-                        // Window
-                        const windowGeo = new THREE.PlaneGeometry(size * 0.4, size * 0.4);
-                        const windowMat = new THREE.MeshStandardMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.8 });
-                        const window = new THREE.Mesh(windowGeo, windowMat);
-                        window.position.set(size * 0.4, size * 0.2, size * 0.75); itemGroup.add(window);
-
-                        // Chimney (optional)
-                        if (Math.random() > 0.5) {
-                            const chimneyGeo = new THREE.BoxGeometry(size * 0.2, size * 0.5, size * 0.2);
-                            const chimneyMat = new THREE.MeshStandardMaterial({ color: 0x696969, roughness: 0.7, transparent: true, opacity: 0 });
-                            const chimney = new THREE.Mesh(chimneyGeo, chimneyMat);
-                            chimney.position.set(size * 0.6, size * 1.4, size * 0.5);
-                            chimney.castShadow = chimney.receiveShadow = true; itemGroup.add(chimney);
-                        }
-
-                        threeMesh = itemGroup;
-                        threeMesh.userData.size = size * 1.5;
-                        cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.75, size * 0.75, size * 0.75));
-                        break;
-
-                    case 'Mailbox':
-                        size = Math.random() * 0.8 + 0.3;
-                        itemGroup = new THREE.Group();
-
-                        // Post
-                        const postGeo = new THREE.CylinderGeometry(size * 0.1, size * 0.1, size * 1.5, 8);
-                        const postMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.7, transparent: true, opacity: 0 });
-                        const post = new THREE.Mesh(postGeo, postMat);
-                        post.position.y = size * 0.75; itemGroup.add(post);
-
-                        // Box
-                        const boxGeo = new THREE.BoxGeometry(size * 0.8, size * 0.5, size * 0.5);
-                        const boxMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, roughness: 0.6, transparent: true, opacity: 0 });
-                        const box = new THREE.Mesh(boxGeo, boxMat);
-                        box.position.y = size * 1.5; itemGroup.add(box);
-
-                        // Flag
-                        const flagGeo = new THREE.BoxGeometry(size * 0.05, size * 0.3, size * 0.1);
-                        const flagMat = new THREE.MeshStandardMaterial({ color: 0xFF0000, roughness: 0.6, transparent: true, opacity: 0 });
-                        const flag = new THREE.Mesh(flagGeo, flagMat);
-                        flag.position.set(size * 0.4, size * 1.6, 0); itemGroup.add(flag);
-
-                        threeMesh = itemGroup;
-                        threeMesh.userData.size = size * 1.5;
-                        cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.4, size * 0.75, size * 0.25));
-                        break;
-
-                    case 'Fire Hydrant':
-                        size = Math.random() * 0.7 + 0.3;
-                        itemGroup = new THREE.Group();
-
-                        const baseGeo = new THREE.CylinderGeometry(size * 0.4, size * 0.5, size * 0.3, 16);
-                        const baseMat = new THREE.MeshStandardMaterial({ color: 0xFF0000, roughness: 0.6, transparent: true, opacity: 0 });
-                        const base = new THREE.Mesh(baseGeo, baseMat);
-                        base.position.y = size * 0.15; itemGroup.add(base);
-
-                        const middleGeo = new THREE.CylinderGeometry(size * 0.3, size * 0.3, size * 0.8, 16);
-                        const middleMat = new THREE.MeshStandardMaterial({ color: 0xFF0000, roughness: 0.6, transparent: true, opacity: 0 });
-                        const middle = new THREE.Mesh(middleGeo, middleMat);
-                        middle.position.y = size * 0.3 + size * 0.4; itemGroup.add(middle);
-
-                        const topGeo = new THREE.CylinderGeometry(size * 0.2, size * 0.2, size * 0.2, 16);
-                        const topMat = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.6, transparent: true, opacity: 0 });
-                        const top = new THREE.Mesh(topGeo, topMat);
-                        top.position.y = size * 0.3 + size * 0.8 + size * 0.1; itemGroup.add(top);
-
-                        const nozzleGeo = new THREE.CylinderGeometry(size * 0.1, size * 0.1, size * 0.3, 8);
-                        const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.6, transparent: true, opacity: 0 });
-                        const nozzle1 = new THREE.Mesh(nozzleGeo, nozzleMat);
-                        nozzle1.rotation.z = Math.PI / 2; nozzle1.position.set(size * 0.3, size * 0.6, 0); itemGroup.add(nozzle1);
-                        const nozzle2 = new THREE.Mesh(nozzleGeo, nozzleMat);
-                        nozzle2.rotation.z = Math.PI / 2; nozzle2.position.set(-size * 0.3, size * 0.6, 0); itemGroup.add(nozzle2);
-
-                        threeMesh = itemGroup;
-                        threeMesh.userData.size = size * 1.5;
-                        cannonShape = new CANNON.Cylinder(size * 0.5, size * 0.5, size * 1.5, 16);
-                        break;
-
-                    case 'Traffic Cone':
-                        size = Math.random() * 0.5 + 0.2;
-                        const coneGeo = new THREE.ConeGeometry(size * 0.5, size * 1.5, 16);
-                        const coneMat = new THREE.MeshStandardMaterial({ color: 0xFFA500, roughness: 0.6, transparent: true, opacity: 0 });
-                        threeMesh = new THREE.Mesh(coneGeo, coneMat);
-                        threeMesh.userData.size = size * 1.5;
-                        cannonShape = new CANNON.Cylinder(0, size * 0.5, size * 1.5, 16);
-                        break;
-
-                    case 'Hot Dog Stand':
-                        size = Math.random() * 1.5 + 0.8;
-                        itemGroup = new THREE.Group();
-
-                        // Base cart
-                        const cartBodyGeo = new THREE.BoxGeometry(size * 1.5, size * 0.8, size * 0.8);
-                        const cartBodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true, opacity: 0 });
-                        const cartBody = new THREE.Mesh(cartBodyGeo, cartBodyMat);
-                        cartBody.position.y = size * 0.4; itemGroup.add(cartBody);
-
-                        // Roof
-                        const roofStandGeo = new THREE.BoxGeometry(size * 1.8, size * 0.2, size * 1);
-                        const roofStandMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true, opacity: 0 });
-                        const roofStand = new THREE.Mesh(roofStandGeo, roofStandMat);
-                        roofStand.position.y = size * 1.1; itemGroup.add(roofStand);
-
-                        // Awning
-                        const awningGeo = new THREE.BoxGeometry(size * 1.8, size * 0.1, size * 0.3);
-                        const awningMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, roughness: 0.6, transparent: true, opacity: 0 });
-                        const awning = new THREE.Mesh(awningGeo, awningMat);
-                        awning.position.set(0, size * 1.2, size * 0.5); itemGroup.add(awning);
-
-                        // Wheels
-                        const standWheelGeo = new THREE.CylinderGeometry(size * 0.15, size * 0.15, size * 0.1, 16);
-                        const standWheelMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, transparent: true, opacity: 0 });
-                        const standWheel1 = new THREE.Mesh(standWheelGeo, standWheelMat);
-                        standWheel1.rotation.z = Math.PI / 2; standWheel1.position.set(size * 0.6, size * 0.1, size * 0.3); itemGroup.add(standWheel1);
-                        const standWheel2 = new THREE.Mesh(standWheelGeo, standWheelMat);
-                        standWheel2.rotation.z = Math.PI / 2; standWheel2.position.set(-size * 0.6, size * 0.1, size * 0.3); itemGroup.add(standWheel2);
-
-                        threeMesh = itemGroup;
-                        threeMesh.userData.size = size * 2;
-                        cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.75, size * 0.5, size * 0.4));
-                        break;
-                    
-                    case 'Asteroid':
-                        size = Math.random() * 3 + 1;
-                        const asteroidGeo = new THREE.IcosahedronGeometry(size, 0); // Low poly sphere
-                        const asteroidMat = new THREE.MeshStandardMaterial({ color: 0x696969, roughness: 0.9, flatShading: true, transparent: true, opacity: 0 });
-                        threeMesh = new THREE.Mesh(asteroidGeo, asteroidMat);
-                        threeMesh.userData.size = size * 2;
-                        cannonShape = new CANNON.Sphere(size);
-                        break;
-
-                    case 'Satellite':
-                        size = Math.random() * 1.5 + 0.5;
-                        itemGroup = new THREE.Group();
-
-                        const mainSatBodyGeo = new THREE.BoxGeometry(size * 0.5, size * 0.5, size * 1.5);
-                        const mainSatBodyMat = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.5, transparent: true, opacity: 0 });
-                        const mainSatBody = new THREE.Mesh(mainSatBodyGeo, mainSatBodyMat);
-                        itemGroup.add(mainSatBody);
-
-                        const solarPanelGeo = new THREE.BoxGeometry(size * 2, 0.05, size * 0.8);
-                        const solarPanelMat = new THREE.MeshStandardMaterial({ color: 0x00008B, roughness: 0.2, metalness: 0.8, transparent: true, opacity: 0 });
-                        const panel1 = new THREE.Mesh(solarPanelGeo, solarPanelMat);
-                        panel1.position.x = size * 1.25; itemGroup.add(panel1);
-                        const panel2 = new THREE.Mesh(solarPanelGeo, solarPanelMat);
-                        panel2.position.x = -size * 1.25; itemGroup.add(panel2);
-
-                        threeMesh = itemGroup;
-                        threeMesh.userData.size = size * 2.5; // Larger effective size
-                        cannonShape = new CANNON.Box(new CANNON.Vec3(size * 1.25, size * 0.25, size * 0.75));
-                        break;
-
-                    case 'Space Debris':
-                        size = Math.random() * 0.8 + 0.2;
-                        let debrisGeo;
-                        const debrisMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7, transparent: true, opacity: 0 });
-                        const debrisType = Math.random();
-                        if (debrisType < 0.3) { // Cube
-                            debrisGeo = new THREE.BoxGeometry(size, size, size);
-                            cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.5, size * 0.5, size * 0.5));
-                        } else if (debrisType < 0.6) { // Cylinder
-                            debrisGeo = new THREE.CylinderGeometry(size * 0.5, size * 0.5, size * 1.5, 8);
-                            cannonShape = new CANNON.Cylinder(size * 0.5, size * 0.5, size * 1.5, 8);
-                        } else { // Fragment (random tetrahedron)
-                            debrisGeo = new THREE.TetrahedronGeometry(size, 0);
-                            cannonShape = new CANNON.Sphere(size * 0.7); // Approximate with sphere for physics
-                        }
-                        threeMesh = new THREE.Mesh(debrisGeo, debrisMat);
-                        threeMesh.userData.size = size;
-                        break;
-
-                    case 'Comet Fragment':
-                        size = Math.random() * 1.2 + 0.4;
-                        const cometGeo = new THREE.IcosahedronGeometry(size, 1); // Slightly more detailed
-                        const cometMat = new THREE.MeshStandardMaterial({ color: 0xADD8E6, roughness: 0.8, flatShading: true, transparent: true, opacity: 0 });
-                        threeMesh = new THREE.Mesh(cometGeo, cometMat);
-                        threeMesh.userData.size = size * 1.5;
-                        cannonShape = new CANNON.Sphere(size);
-                        break;
-
-                    case 'Moon Rock':
-                        size = Math.random() * 1.5 + 0.5;
-                        const moonRockGeo = new THREE.DodecahedronGeometry(size, 0); // Irregular shape
-                        const moonRockMat = new THREE.MeshStandardMaterial({ color: 0xA9A9A9, roughness: 0.9, flatShading: true, transparent: true, opacity: 0 });
-                        threeMesh = new THREE.Mesh(moonRockGeo, moonRockMat);
-                        threeMesh.userData.size = size * 1.2;
-                        cannonShape = new CANNON.Sphere(size);
-                        break;
-
-                    case 'Star Dust Cluster':
-                        size = Math.random() * 0.6 + 0.1;
-                        itemGroup = new THREE.Group();
-                        const particleMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.8 });
-                        for (let j = 0; j < 10; j++) {
-                            const particleGeo = new THREE.SphereGeometry(size * 0.2, 8, 8);
-                            const particle = new THREE.Mesh(particleGeo, particleMat);
-                            particle.position.set(
-                                (Math.random() - 0.5) * size,
-                                (Math.random() - 0.5) * size,
-                                (Math.random() - 0.5) * size
-                            );
-                            itemGroup.add(particle);
-                        }
-                        threeMesh = itemGroup;
-                        threeMesh.userData.size = size * 2;
-                        cannonShape = new CANNON.Sphere(size);
-                        break;
-
-                    default: // Generic items (Rock, Bush, Bench, Lamp Post, Trash Can)
-                        size = Math.random() * 1.5 + 0.5;
-                        let geo;
-                        switch (itemName) {
-                            case 'Rock':
-                                geo = new THREE.SphereGeometry(size * 0.7, 16, 16);
-                                cannonShape = new CANNON.Sphere(size * 0.7); break;
-                            case 'Bush':
-                                geo = new THREE.SphereGeometry(size * 0.8, 24, 24);
-                                cannonShape = new CANNON.Sphere(size * 0.8); break;
-                            case 'Bench':
-                                geo = new THREE.BoxGeometry(size * 2, size * 0.5, size * 0.5);
-                                cannonShape = new CANNON.Box(new CANNON.Vec3(size, size * 0.25, size * 0.25)); break;
-                            case 'Lamp Post':
-                                geo = new THREE.CylinderGeometry(size * 0.1, size * 0.1, size * 3, 16);
-                                cannonShape = new CANNON.Cylinder(size * 0.1, size * 0.1, size * 3, 16); break;
-                            case 'Trash Can':
-                                geo = new THREE.CylinderGeometry(size * 0.4, size * 0.5, size * 1.2, 24);
-                                cannonShape = new CANNON.Cylinder(size * 0.4, size * 0.5, size * 1.2, 24); break;
-                            default: // Fallback, should not be hit if itemNames are well-defined
-                                console.warn(`Unknown item name '${itemName}' encountered. Using generic cube.`);
-                                geo = new THREE.BoxGeometry(size, size, size);
-                                cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.5, size * 0.5, size * 0.5));
-                        }
-                        const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6, transparent: true, opacity: 0 });
-                        threeMesh = new THREE.Mesh(geo, mat);
-                        threeMesh.castShadow = threeMesh.receiveShadow = true;
-                        threeMesh.userData.size = size; 
-                        break;
-                }
-
-                console.log(`After switch - threeMesh:`, threeMesh);
-                console.log(`After switch - cannonShape:`, cannonShape);
-
-                // Defensive check: Ensure threeMesh and its userData.size are defined after the switch
-                if (!threeMesh || threeMesh.userData === undefined || threeMesh.userData.size === undefined) {
-                    console.error(`Skipping item due to missing essential properties after switch for item: ${itemName}`);
-                    continue; 
-                }
-                
-                // Store the Cannon.js shape for later use (e.g., shedding)
-                threeMesh.userData.cannonShape = cannonShape; 
-
-                // --- Procedural Generation Position Logic (Outside Frustum) ---
-                const maxAttempts = 50;
-                let positionFound = false;
-                let currentX, currentZ;
-                let attempts = 0;
-
-                while (!positionFound && attempts < maxAttempts) {
-                    currentX = centerPosition.x + (Math.random() - 0.5) * spawnRadius * 2;
-                    currentZ = centerPosition.z + (Math.random() - 0.5) * spawnRadius * 2;
-
-                    // Clamp positions to stay within map boundaries
-                    currentX = THREE.MathUtils.clamp(currentX, -mapBoundary, mapBoundary);
-                    currentZ = THREE.MathUtils.clamp(currentZ, -mapBoundary, mapBoundary);
-
-                    const tempSphere = new THREE.Sphere(new THREE.Vector3(currentX, threeMesh.userData.size / 2, currentZ), threeMesh.userData.size / 2);
-
-                    // Check if the temporary sphere intersects with the camera's frustum
-                    if (!frustum.intersectsSphere(tempSphere)) {
-                        positionFound = true;
-                    }
+                let x, z, attempts = 0;
+                const maxAttempts = 20;
+                do {
+                    x = centerPosition.x + (Math.random() - 0.5) * spawnRadius * 2;
+                    z = centerPosition.z + (Math.random() - 0.5) * spawnRadius * 2;
                     attempts++;
-                }
-                // If after maxAttempts, a non-visible position wasn't found, use the last generated one.
-                // This prevents infinite loops but might occasionally place an item in view if no valid spot is found.
+                } while (frustum.intersectsSphere(new THREE.Sphere(new THREE.Vector3(x, size/2, z), size/2)) && attempts < maxAttempts);
 
-                const yPos = threeMesh.userData.size / 2; // Place on ground
-                threeMesh.position.set(currentX, yPos, currentZ);
+                x = THREE.MathUtils.clamp(x, -mapBoundary, mapBoundary);
+                z = THREE.MathUtils.clamp(z, -mapBoundary, mapBoundary);
+                const y = threeMesh.userData.size / 2;
+
+                threeMesh.position.set(x, y, z);
                 threeMesh.rotation.set(0, Math.random() * Math.PI * 2, 0);
                 scene.add(threeMesh);
                 itemsToCollect.push(threeMesh);
 
-                // Add fade-in properties
                 threeMesh.userData.fadeStartTime = Date.now();
                 threeMesh.userData.isFadingIn = true;
 
-
-                // Create Cannon.js body for the item
-                const itemBody = new CANNON.Body({ mass: threeMesh.userData.size * 5, shape: cannonShape });
-                itemBody.position.set(currentX, yPos, currentZ); // Use the final position
+                const itemBody = new CANNON.Body({ mass: threeMesh.userData.size * 5, shape: cannonShape, position: new CANNON.Vec3(x, y, z) });
                 itemBody.quaternion.copy(threeMesh.quaternion);
-                itemBody.userData = { threeMesh: threeMesh }; 
-                world.addBody(itemBody); // Use world.addBody for cannon-es
+                itemBody.userData = { threeMesh }; 
+                world.addBody(itemBody);
                 physicsBodies.push(itemBody);
             }
-            console.log(`createCollectibleItems: Finished creating ${count} items.`);
         }
 
         function resetKatamariPosition() {
-            console.log("Resetting Katamari position...");
             if (katamariBody) {
                 katamariBody.position.set(0, katamariRadius, 0);
                 katamariBody.velocity.set(0,0,0);
                 katamariBody.angularVelocity.set(0,0,0);
-                katamari.position.copy(katamariBody.position);
-                katamari.quaternion.copy(katamariBody.quaternion);
-                lastGenerationPosition.copy(katamari.position); // Reset generation position on reset
-                console.log("Katamari position reset to (0,0,0).");
-            } else {
-                console.warn("resetKatamariPosition: katamariBody is not defined.");
+                lastGenerationPosition.copy(katamariBody.position);
             }
         }
 
         function onWindowResize() {
-            console.log("Window resized. Updating camera and renderer size.");
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
+        // --- MAIN LOOP ---
         function animate() {
             requestAnimationFrame(animate);
-
             if (isGeneratingLevel || !katamari || !world) {
-                // console.log("Animation paused: Generating level or core objects not ready."); // Too chatty
-                if (renderer && scene && camera) {
-                    renderer.render(scene, camera);
-                }
+                if (renderer && scene && camera) renderer.render(scene, camera);
                 return;
             }
 
             const deltaTime = clock.getDelta();
-            
-            // Update frustum for visibility checks
-            camera.updateMatrixWorld(); // Ensure camera's world matrix is up-to-date
+            camera.updateMatrixWorld();
             frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
 
-            // Manage physics body sleeping/waking based on distance and frustum visibility
-            for (const body of physicsBodies) {
-                if (body.userData && body.userData.threeMesh) {
-                    const itemThreeMesh = body.userData.threeMesh; 
-                    const distanceToKatamari = katamari.position.distanceTo(itemThreeMesh.position);
-                    
-                    // Create a temporary sphere for frustum check based on item's size and position
-                    const itemBoundingSphere = new THREE.Sphere(itemThreeMesh.position, itemThreeMesh.userData.size / 2);
-                    const isInFrustum = frustum.intersectsSphere(itemBoundingSphere);
-
-                    if (distanceToKatamari < physicsActiveDistance || isInFrustum) {
-                        // If close to Katamari or in view, ensure physics body is awake
-                        if (body.sleepState === CANNON.Body.SLEEPING) {
-                            body.wakeUp();
-                        }
-                    } else {
-                        // If far and not in view, put physics body to sleep
-                        if (body.sleepState === CANNON.Body.AWAKE) {
-                            body.sleep();
-                        }
-                    }
-                }
-            }
-
-            // Update physics world
+            // Physics update
             try {
                 world.step(timeStep, deltaTime);
             } catch (e) {
-                console.error("Error during world.step:", e);
-                // Continue rendering even if physics step fails for items
+                console.error("Physics step error:", e);
                 renderer.render(scene, camera);
                 return;
             }
 
-            // Sync Three.js Katamari with physics body
+            // Sync visuals with physics
             katamari.position.copy(katamariBody.position);
             katamari.quaternion.copy(katamariBody.quaternion);
-
-            // Sync Three.js item meshes with their Cannon.js bodies
-            for (const body of physicsBodies) {
+            physicsBodies.forEach(body => {
                 if (body.userData && body.userData.threeMesh) {
-                    // Only update visual mesh if physics body is awake or has recently moved
-                    if (body.sleepState === CANNON.Body.AWAKE || body.velocity.length() > 0.01 || body.angularVelocity.length() > 0.01) {
-                         body.userData.threeMesh.position.copy(body.position);
-                         body.userData.threeMesh.quaternion.copy(body.quaternion);
-                    }
+                    body.userData.threeMesh.position.copy(body.position);
+                    body.userData.threeMesh.quaternion.copy(body.quaternion);
                 }
-            }
+            });
 
-            // Handle item fade-in (for newly created items)
-            for (const item of itemsToCollect) {
+            // Effects and updates
+            updateItemFading();
+            updateParticles(deltaTime);
+            updateKatamariMovement(deltaTime);
+            updateWobble(deltaTime);
+
+            // Clamp position
+            katamariBody.position.x = THREE.MathUtils.clamp(katamariBody.position.x, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
+            katamariBody.position.z = THREE.MathUtils.clamp(katamariBody.position.z, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
+            katamari.position.copy(katamariBody.position);
+
+            checkCollisions();
+            checkMountainCollisions();
+
+            // Dynamic content
+            if (katamari.position.distanceTo(lastGenerationPosition) > generationDistanceThreshold) {
+                createCollectibleItems(50, currentTheme.items, katamari.position, 150);
+                lastGenerationPosition.copy(katamari.position);
+            }
+            cleanupOldItems();
+
+            updateCamera(smoothedSpeed);
+            renderer.render(scene, camera);
+            updateUI();
+            checkWinCondition();
+        }
+
+        // --- ANIMATE HELPERS ---
+        function updateItemFading() {
+            itemsToCollect.forEach(item => {
                 if (item.userData.isFadingIn) {
-                    const elapsed = Date.now() - item.userData.fadeStartTime;
-                    const progress = Math.min(1, elapsed / itemFadeDuration);
-
-                    if (item.isGroup) { // If it's a group, iterate through its meshes
-                        item.traverse(function (object) {
-                            if (object.isMesh && object.material.transparent) {
-                                object.material.opacity = progress;
-                            }
-                        });
-                    } else if (item.isMesh && item.material.transparent) { // If it's a single mesh
-                        item.material.opacity = progress;
-                    }
-
-                    if (progress === 1) {
-                        item.userData.isFadingIn = false;
-                    }
+                    const progress = Math.min(1, (Date.now() - item.userData.fadeStartTime) / itemFadeDuration);
+                    const applyOpacity = (obj) => { if (obj.isMesh && obj.material.transparent) obj.material.opacity = progress; };
+                    item.traverse(applyOpacity);
+                    if (progress === 1) item.userData.isFadingIn = false;
                 }
-            }
+            });
+        }
 
-            // Update particles
+        function updateParticles(deltaTime) {
             for (let i = particles.length - 1; i >= 0; i--) {
-                const particle = particles[i];
-                particle.userData.age += deltaTime;
-
-                // Apply gravity and velocity
-                particle.userData.velocity.addScaledVector(particle.userData.gravity, deltaTime);
-                particle.position.addScaledVector(particle.userData.velocity, deltaTime);
-
-                // Fade out
-                const opacity = 1 - (particle.userData.age / particle.userData.lifespan);
-                if (particle.material.opacity !== opacity) { // Only update if changed
-                    particle.material.opacity = opacity;
-                }
-                
-
-                if (particle.userData.age >= particle.userData.lifespan || particle.position.y < 0) {
-                    scene.remove(particle);
-                    particle.geometry.dispose();
-                    particle.material.dispose();
+                const p = particles[i];
+                p.userData.age += deltaTime;
+                p.userData.velocity.y -= 9.82 * deltaTime;
+                p.position.addScaledVector(p.userData.velocity, deltaTime);
+                p.material.opacity = 1 - (p.userData.age / p.userData.lifespan);
+                if (p.userData.age >= p.userData.lifespan || p.position.y < 0) {
+                    scene.remove(p);
+                    p.geometry.dispose();
+                    p.material.dispose();
                     particles.splice(i, 1);
                 }
             }
+        }
 
-            // Calculate movement direction relative to camera
+        function updateKatamariMovement(deltaTime) {
             const cameraDirection = new THREE.Vector3();
             camera.getWorldDirection(cameraDirection);
             cameraDirection.y = 0;
             cameraDirection.normalize();
-
             const rightDirection = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), cameraDirection).normalize();
-
-            let desiredVelocity = new CANNON.Vec3(0,0,0); // Use a Cannon.js vector for desired velocity
-            let isMovingInput = false; // Track if there's *any* directional input
+            let desiredVelocity = new CANNON.Vec3(0,0,0);
+            let isMoving = false;
 
             if (useGyroscope) {
-                // Gyroscope input
-                // Map gamma (front-back tilt) to forward/backward movement
-                // Map beta (left-to-right tilt) to left/right movement
-                // Clamp values to prevent excessive speed/unintended movement
-                const forwardBackwardTilt = THREE.MathUtils.clamp(gyro.gamma / 45, -1, 1); // Normalize to -1 to 1
-                const leftRightTilt = THREE.MathUtils.lerp(0, -1, THREE.MathUtils.clamp(gyro.beta / 45, -1, 1)); // Normalize to -1 to 1
-
-                desiredVelocity.x += cameraDirection.x * moveSpeed * forwardBackwardTilt * gyroSensitivity;
-                desiredVelocity.z += cameraDirection.z * moveSpeed * forwardBackwardTilt * gyroSensitivity;
-                desiredVelocity.x -= rightDirection.x * moveSpeed * leftRightTilt * gyroSensitivity;
-                desiredVelocity.z -= rightDirection.z * moveSpeed * leftRightTilt * gyroSensitivity;
-                
-                // If there's any significant tilt, consider it moving input
-                if (Math.abs(forwardBackwardTilt) > 0.1 || Math.abs(leftRightTilt) > 0.1) {
-                    isMovingInput = true;
-                }
+                const fwd = THREE.MathUtils.clamp(gyro.gamma / 45, -1, 1) * gyroSensitivity;
+                const side = THREE.MathUtils.lerp(0, -1, THREE.MathUtils.clamp(gyro.beta / 45, -1, 1)) * gyroSensitivity;
+                desiredVelocity.x += (cameraDirection.x * fwd - rightDirection.x * side) * moveSpeed;
+                desiredVelocity.z += (cameraDirection.z * fwd - rightDirection.z * side) * moveSpeed;
+                if (Math.abs(fwd) > 0.1 || Math.abs(side) > 0.1) isMoving = true;
             } else {
-                // Determine desired velocity based on keyboard input
-                if (keys['w'] || keys['arrowup']) {
-                    desiredVelocity.x += cameraDirection.x * moveSpeed;
-                    desiredVelocity.z += cameraDirection.z * moveSpeed;
-                    isMovingInput = true;
-                }
-                if (keys['s'] || keys['arrowdown']) {
-                    desiredVelocity.x -= cameraDirection.x * moveSpeed;
-                    desiredVelocity.z -= cameraDirection.z * moveSpeed;
-                    isMovingInput = true;
-                }
-                if (keys['a'] || keys['arrowleft']) {
-                    desiredVelocity.x -= rightDirection.x * moveSpeed;
-                    desiredVelocity.z -= rightDirection.z * moveSpeed;
-                    isMovingInput = true;
-                }
-                if (keys['d'] || keys['arrowright']) {
-                    desiredVelocity.x += rightDirection.x * moveSpeed;
-                    desiredVelocity.z += rightDirection.z * moveSpeed;
-                    isMovingInput = true;
-                }
-
-                // Determine desired velocity based on touch input
+                if (keys['w'] || keys['arrowup']) { desiredVelocity.x += cameraDirection.x * moveSpeed; desiredVelocity.z += cameraDirection.z * moveSpeed; isMoving = true; }
+                if (keys['s'] || keys['arrowdown']) { desiredVelocity.x -= cameraDirection.x * moveSpeed; desiredVelocity.z -= cameraDirection.z * moveSpeed; isMoving = true; }
+                if (keys['a'] || keys['arrowleft']) { desiredVelocity.x -= rightDirection.x * moveSpeed; desiredVelocity.z -= rightDirection.z * moveSpeed; isMoving = true; }
+                if (keys['d'] || keys['arrowright']) { desiredVelocity.x += rightDirection.x * moveSpeed; desiredVelocity.z += rightDirection.z * moveSpeed; isMoving = true; }
                 if (touchInput.active) {
-                    const deltaX = touchInput.currentX - touchInput.startX;
-                    const deltaY = touchInput.currentY - touchInput.startY;
-
-                    const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                    if (length > touchDeadZone) { // Apply movement only if outside dead zone
-                        const normalizedDeltaX = deltaX / length;
-                        const normalizedDeltaY = deltaY / length;
-
-                        // Map touch X to right/left, touch Y to forward/backward relative to camera
-                        desiredVelocity.x += (cameraDirection.x * normalizedDeltaY - rightDirection.x * normalizedDeltaX) * moveSpeed * touchSensitivity;
-                        desiredVelocity.z += (cameraDirection.z * normalizedDeltaY - rightDirection.z * normalizedDeltaX) * moveSpeed * touchSensitivity;
-                        isMovingInput = true;
+                    const dx = touchInput.currentX - touchInput.startX, dy = touchInput.currentY - touchInput.startY;
+                    const len = Math.sqrt(dx*dx + dy*dy);
+                    if (len > touchDeadZone) {
+                        const nx = dx/len, ny = dy/len;
+                        desiredVelocity.x += (cameraDirection.x * ny - rightDirection.x * nx) * moveSpeed * touchSensitivity;
+                        desiredVelocity.z += (cameraDirection.z * ny - rightDirection.z * nx) * moveSpeed * touchSensitivity;
+                        isMoving = true;
                     }
                 }
             }
 
-            // Apply desired velocity if there's input, otherwise let damping handle it
-            if (isMovingInput) {
-                // Directly set the velocity for immediate response
-                // Keep the current Y velocity to allow for gravity/bouncing
+            if (isMoving) {
                 katamariBody.velocity.set(desiredVelocity.x, katamariBody.velocity.y, desiredVelocity.z);
             }
-            // If no input, the linearDamping will naturally slow it down.
 
-
-            // Calculate rolling rotation based on actual current velocity
-            const currentVelocityLength = katamariBody.velocity.length();
-            if (currentVelocityLength > 0.1) { // Only apply rolling if there's significant movement
+            const currentVelocity = katamariBody.velocity.length();
+            if (currentVelocity > 0.1) {
                 const up = new CANNON.Vec3(0,1,0);
-                const targetAngularVelocity = new CANNON.Vec3();
-                // Calculate the desired angular velocity for rolling
-                katamariBody.velocity.cross(up, targetAngularVelocity);
-                targetAngularVelocity.scale(1 / katamariRadius, targetAngularVelocity);
-
-                // Smoothly interpolate the actual angular velocity towards the target
-                // Use a higher interpolation factor when speed is low for snappier start
-                const interpolationFactor = THREE.MathUtils.lerp(0.5, 0.1, Math.min(1, currentVelocityLength / 5)); // 0.5 for very low speed, 0.1 for higher
-                katamariBody.angularVelocity.x = THREE.MathUtils.lerp(katamariBody.angularVelocity.x, targetAngularVelocity.x, interpolationFactor);
-                katamariBody.angularVelocity.y = THREE.MathUtils.lerp(katamariBody.angularVelocity.y, targetAngularVelocity.y, interpolationFactor);
-                katamariBody.angularVelocity.z = THREE.MathUtils.lerp(katamariBody.angularVelocity.z, targetAngularVelocity.z, interpolationFactor);
-                
-                playRollingSound(currentVelocityLength);
+                const targetAngular = katamariBody.velocity.cross(up);
+                targetAngular.scale(1 / katamariRadius, targetAngular);
+                const factor = THREE.MathUtils.lerp(0.5, 0.1, Math.min(1, currentVelocity / 5));
+                katamariBody.angularVelocity.lerp(targetAngular, factor, katamariBody.angularVelocity);
+                playRollingSound(currentVelocity);
             } else {
-                // If velocity is very low, stop rolling sound and smoothly bring angular velocity to zero
                 stopRollingSound();
-                katamariBody.angularVelocity.x = THREE.MathUtils.lerp(katamariBody.angularVelocity.x, 0, 0.1);
-                katamariBody.angularVelocity.y = THREE.MathUtils.lerp(katamariBody.angularVelocity.y, 0, 0.1);
-                katamariBody.angularVelocity.z = THREE.MathUtils.lerp(katamariBody.angularVelocity.z, 0, 0.1);
+                katamariBody.angularVelocity.lerp(new CANNON.Vec3(0,0,0), 0.1, katamariBody.angularVelocity);
             }
-
-            // Smooth out the speed for camera FOV (use actual physics velocity)
-            smoothedSpeed = THREE.MathUtils.lerp(smoothedSpeed, currentVelocityLength, 0.1);
-
-            // Clamp Katamari position to stay within bounds (only X and Z)
-            katamariBody.position.x = THREE.MathUtils.clamp(katamariBody.position.x, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
-            katamariBody.position.z = THREE.MathUtils.clamp(katamariBody.position.z, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
-            // Removed: katamariBody.position.y = katamariRadius; // Let physics handle Y position
-
-            // Also update the Three.js Katamari position to match the clamped physics body position
-            katamari.position.copy(katamariBody.position);
-
-
-            checkCollisions(); // Check for collisions with items
-            checkMountainCollisions(); // Check for collisions with mountains
-
-            // Dynamic item generation based on travel distance
-            if (katamari.position.distanceTo(lastGenerationPosition) > generationDistanceThreshold) {
-                console.log("Generating new items due to travel distance.");
-                createCollectibleItems(50, currentTheme.items, katamari.position, 150); // Generate 50 items around current position, in a 150 unit radius (reduced count)
-                lastGenerationPosition.copy(katamari.position); // Update last generation position
+            smoothedSpeed = THREE.MathUtils.lerp(smoothedSpeed, currentVelocity, 0.1);
+        }
+        
+        function updateWobble(deltaTime) {
+            if (wobble.active) {
+                wobble.time += deltaTime;
+                const core = katamari.getObjectByName('core');
+                if (core) {
+                    const wobbleFactor = 1 + Math.sin(wobble.time / wobble.duration * Math.PI * 2) * wobble.magnitude * (1 - wobble.time / wobble.duration);
+                    core.scale.setScalar(wobbleFactor);
+                }
+                if (wobble.time >= wobble.duration) {
+                    wobble.active = false;
+                    if (core) core.scale.setScalar(1);
+                }
             }
+        }
 
-            // Clean up old items that are too far away
-            cleanupOldItems();
-
-            updateCamera(smoothedSpeed); // Pass smoothedSpeed to updateCamera
-            renderer.render(scene, camera); // Render the scene
-
-            // Update UI elements
+        function updateUI() {
             katamariSizeUI.textContent = `${katamariRadius.toFixed(2)}m`;
             katamariSpeedUI.textContent = `${smoothedSpeed.toFixed(2)}m/s`;
             progressBar.style.width = `${Math.min(100, (katamariRadius / targetKatamariSize) * 100)}%`;
+        }
 
-            // Check for win condition
+        function checkWinCondition() {
             if (katamariRadius >= targetKatamariSize && messageOverlay.style.display === 'none') {
-                messageOverlay.textContent = `LEVEL ${currentLevel} COMPLETE! You've grown a magnificent Katamari! Click to continue.`;
-                messageOverlay.style.display = 'block';
+                messageOverlay.textContent = `LEVEL ${currentLevel} COMPLETE! A magnificent new star! Click to continue.`;
+                messageOverlay.style.display = 'flex';
                 stopRollingSound();
-                currentLevel++; // Advance level for next game
-                console.log(`Level ${currentLevel - 1} completed! New target size: ${targetKatamariSize.toFixed(2)}m`);
+                currentLevel++;
             }
         }
-        
-        // --- CLEANUP OLD ITEMS ---
+
+        // --- GAME LOGIC & COLLISIONS ---
         function cleanupOldItems() {
-            // console.log("Cleaning up old items..."); // Too chatty
-            // Clean up collectible items
             for (let i = itemsToCollect.length - 1; i >= 0; i--) {
-                const itemThreeMesh = itemsToCollect[i];
-                // Only remove if not already marked for removal (i.e., not collected)
-                if (katamari.position.distanceTo(itemThreeMesh.position) > cleanupDistanceThreshold) {
-                    const itemCannonBody = physicsBodies.find(body => body.userData?.threeMesh === itemThreeMesh);
-                    if (itemCannonBody) {
-                        world.removeBody(itemCannonBody); // Use world.removeBody for cannon-es
-                        physicsBodies = physicsBodies.filter(b => b !== itemCannonBody);
+                const item = itemsToCollect[i];
+                if (katamari.position.distanceTo(item.position) > cleanupDistanceThreshold) {
+                    const body = physicsBodies.find(b => b.userData?.threeMesh === item);
+                    if (body) {
+                        world.removeBody(body);
+                        physicsBodies = physicsBodies.filter(b => b !== body);
                     }
-                    scene.remove(itemThreeMesh);
-                    itemsToCollect.splice(i, 1); // Remove from itemsToCollect immediately
-                    // console.log("Removed item due to distance."); // Too chatty
+                    scene.remove(item);
+                    itemsToCollect.splice(i, 1);
                 }
             }
         }
 
-        // --- COLLISION DETECTION (Three.js based for Katamari-Item) ---
         function checkCollisions() {
             const katamariSphere = new THREE.Sphere(katamari.position, katamariRadius);
+            const collectionThreshold = 1.5;
 
             for (let i = itemsToCollect.length - 1; i >= 0; i--) {
-                const itemThreeMesh = itemsToCollect[i];
-                const itemCannonBody = physicsBodies.find(body => body.userData?.threeMesh === itemThreeMesh);
+                const item = itemsToCollect[i];
+                const itemBody = physicsBodies.find(b => b.userData?.threeMesh === item);
+                if (!itemBody) continue;
 
-                if (!itemCannonBody) continue; // Should not happen if arrays are in sync
-
-                const itemSphere = new THREE.Sphere(itemThreeMesh.position, itemThreeMesh.userData.size / 2);
-
-                // Simple sphere-sphere intersection check
-                const distance = katamariSphere.center.distanceTo(itemSphere.center);
-                const combinedRadius = katamariSphere.radius + itemSphere.radius;
-
-                // Collection threshold: Only collect if the item is smaller than 1.5x Katamari radius
-                const collectionThreshold = 1.5; // Katamari must be 1.5x larger than item
-                if (distance < combinedRadius && itemThreeMesh.userData.size < katamariRadius / collectionThreshold) {
-                    console.log(`Collecting item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
-                    attachItem(itemThreeMesh, itemCannonBody);
-                    playCollectionSound();
+                const itemSphere = new THREE.Sphere(item.position, item.userData.size / 2);
+                if (katamariSphere.intersectsSphere(itemSphere)) {
+                    if (item.userData.size < katamariRadius / collectionThreshold) {
+                        attachItem(item, itemBody);
+                        playCollectionSound();
+                    } else {
+                        playBumpSound();
+                    }
                 }
             }
         }
 
-        // New collision function for mountains
         function checkMountainCollisions() {
-            const currentTime = Date.now(); // Get current time for cooldown check
-
-            for (const mountain of mountains) { // mountain is a THREE.Mesh
-                // Create sphere representation for mountain (simplified collision)
-                const mountainCenterThree = mountain.position.clone();
-                mountainCenterThree.y = katamariBody.position.y; // Align Y for horizontal distance calculation
-
-                // Convert Three.js vector to Cannon.js vector for physics calculations
-                const mountainCenterCannon = new CANNON.Vec3(mountainCenterThree.x, mountainCenterThree.y, mountainCenterThree.z);
-
-                // Calculate distance using Cannon.js vector method
-                const distance = katamariBody.position.distanceTo(mountainCenterCannon);
-                const mountainRadius = mountain.userData.size; // This is the base radius 'r'
-
-                // Combined radius for collision check
-                const combinedRadius = katamariRadius + mountainRadius;
-
-                // If Katamari is too small to pass AND collision is detected
-                if (katamariRadius < mountain.userData.minSizeToPass && distance < combinedRadius) {
-                    // Calculate overlap
-                    const overlap = combinedRadius - distance;
-
+            const now = Date.now();
+            mountains.forEach(mountain => {
+                if (!mountain.userData.size) return; // Skip clouds
+                const mountainCenter = mountain.position.clone();
+                mountainCenter.y = katamariBody.position.y;
+                const distance = katamariBody.position.distanceTo(mountainCenter);
+                
+                if (katamariRadius < mountain.userData.minSizeToPass && distance < katamariRadius + mountain.userData.size) {
+                    const overlap = (katamariRadius + mountain.userData.size) - distance;
                     if (overlap > 0) {
-                        console.log("Collision with mountain! Katamari too small to pass.");
-                        
-                        // Mass-dependent impulse calculation
-                        // Larger Katamari (higher mass) means less impact from fixed impulse strength
-                        // Smaller Katamari means more impact
-                        const katamariMass = katamariBody.mass;
-                        const mountainImpactFactor = mountainRadius / katamariRadius; // Larger mountain relative to Katamari = more impact
-                        const baseImpulseStrength = moveSpeed * 0.5; // Reduced base strength
-                        const impulseStrength = baseImpulseStrength * Math.max(0.2, mountainImpactFactor); // Scale by mountain size relative to Katamari, with a min
+                        const impulseStrength = moveSpeed * 0.5 * (mountain.userData.size / katamariRadius);
+                        const normal = katamariBody.position.vsub(mountainCenter).unit();
+                        normal.scale(impulseStrength, normal);
+                        normal.y += impulseStrength * 0.05;
+                        katamariBody.velocity.x += normal.x;
+                        katamariBody.velocity.y += normal.y;
+                        katamariBody.velocity.z += normal.z;
 
-                        const collisionNormal = new CANNON.Vec3();
-                        katamariBody.position.vsub(mountainCenterCannon, collisionNormal); 
-                        collisionNormal.normalize();
-                        const impulse = new CANNON.Vec3();
-                        collisionNormal.scale(impulseStrength, impulse); 
-                        
-                        // Add a vertical component to the impulse for bouncing
-                        const bounceFactor = 0.05; // Further reduced bounce factor
-                        impulse.y += impulseStrength * bounceFactor; // Add upward impulse
-
-                        katamariBody.velocity.x += impulse.x;
-                        katamariBody.velocity.y += impulse.y; // Apply vertical impulse
-                        katamariBody.velocity.z += impulse.z;
-
-                        // Calculate number of items to shed based on relative sizes
-                        const shedAmountFactor = Math.min(1, mountainImpactFactor * 0.5); // Max 100% of items from shedding
-                        const maxShedItems = Math.floor(itemsCollectedCount * shedAmountFactor);
-                        const itemsToShed = Math.max(1, Math.min(3, maxShedItems)); // Shed at least 1, max 3, or up to maxShedItems
-
-                        // Check cooldown before shedding items
-                        if (currentTime - lastShedTime > shedCooldown) {
-                            shedSound.triggerAttackRelease("C2", "8n"); // Play sound on bump
-                            shedItems(itemsToShed); 
-                            lastShedTime = currentTime; // Update last shed time
+                        if (now - lastShedTime > shedCooldown) {
+                            shedSound.triggerAttackRelease("C2", "8n");
+                            shedItems(Math.max(1, Math.min(3, Math.floor(itemsCollectedCount * 0.1))));
+                            lastShedTime = now;
                         }
                     }
                 }
-            }
+            });
         }
 
-        // New function to create and manage particles
         function createParticles(position, color, type) {
-            const numParticles = type === 'shed' ? 15 : 10; // More particles for shedding
-            const particleSize = 0.1;
-            const particleMaterial = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1 });
-
-            for (let i = 0; i < numParticles; i++) {
-                const particleGeometry = new THREE.SphereGeometry(particleSize, 8, 8);
-                const particle = new THREE.Mesh(particleGeometry, particleMaterial.clone()); // Clone material for individual opacity
-                particle.position.copy(position);
-
-                // Set random velocity
+            const num = type === 'shed' ? 15 : 10;
+            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+            for (let i = 0; i < num; i++) {
+                const p = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), mat.clone());
+                p.position.copy(position);
                 const speed = type === 'shed' ? Math.random() * 5 + 3 : Math.random() * 2 + 1;
-                const angle = Math.random() * Math.PI * 2;
-                const velocityX = Math.cos(angle) * speed;
-                const velocityZ = Math.sin(angle) * speed;
-                const velocityY = Math.random() * 3 + 1; // Always some upward velocity
-
-                particle.userData.velocity = new THREE.Vector3(velocityX, velocityY, velocityZ);
-                particle.userData.lifespan = Math.random() * 0.8 + 0.4; // Lifespan in seconds
-                particle.userData.age = 0;
-                particle.userData.gravity = new THREE.Vector3(0, -9.82, 0); // Apply gravity to particles
-
-                scene.add(particle);
-                particles.push(particle);
+                p.userData.velocity = new THREE.Vector3((Math.random()-0.5)*speed, Math.random()*3+1, (Math.random()-0.5)*speed);
+                p.userData.lifespan = Math.random() * 0.8 + 0.4;
+                p.userData.age = 0;
+                scene.add(p);
+                particles.push(p);
             }
         }
 
-        // Function to grow Katamari by scaling
         function growKatamari(itemSize) {
-            const growthFactor = 0.05; // How much collecting an item contributes to growth
-            katamariRadius += itemSize * growthFactor;
-
-            // Update Three.js visual scale
-            const scaleFactor = katamariRadius / 2; // Initial radius was 2
-            katamari.scale.set(scaleFactor, scaleFactor, scaleFactor);
-
-            // Update Cannon.js physics body radius
-            const katamariSphereShape = katamariBody.shapes[0];
-            if (katamariSphereShape instanceof CANNON.Sphere) {
-                katamariSphereShape.radius = katamariRadius;
-            }
-            // Also update Katamari body position to ensure it's on the ground if it grew
-            // katamariBody.position.y = katamariRadius; // Removed: Let physics handle Y position
-            // katamari.position.y = katamariRadius; // Removed: Let physics handle Y position
-            console.log(`Katamari radius updated to: ${katamariRadius.toFixed(2)}m, scale: ${scaleFactor.toFixed(2)}`);
+            katamariRadius += itemSize * 0.05;
+            const scale = katamariRadius / 2;
+            katamari.scale.setScalar(scale);
+            katamariBody.shapes[0].radius = katamariRadius;
         }
 
-        // New function to shed items from the Katamari
         function shedItems(numToShed) {
-            console.log(`Attempting to shed ${numToShed} items.`);
-            const attachedItems = katamari.children.filter(child => child.name !== 'core');
-            if (attachedItems.length === 0) {
-                console.log("No items to shed.");
-                return; // No items to shed
-            }
+            const attached = katamari.children.filter(c => c.name !== 'core');
+            if (attached.length === 0) return;
+            attached.sort(() => 0.5 - Math.random());
+            const toShed = Math.min(numToShed, attached.length);
 
-            // Shuffle items and pick the top N
-            attachedItems.sort(() => 0.5 - Math.random());
-            const itemsToActuallyShed = Math.min(numToShed, attachedItems.length);
-            console.log(`Actually shedding ${itemsToActuallyShed} items.`);
+            for (let i = 0; i < toShed; i++) {
+                const item = attached[i];
+                const worldPos = new THREE.Vector3();
+                const worldQuat = new THREE.Quaternion();
+                item.getWorldPosition(worldPos);
+                item.getWorldQuaternion(worldQuat);
 
-            for (let i = 0; i < itemsToActuallyShed; i++) {
-                const itemThreeMesh = attachedItems[i];
-                
-                // Get world position and quaternion before detaching
-                const worldPosition = new THREE.Vector3();
-                itemThreeMesh.getWorldPosition(worldPosition);
-                const worldQuaternion = new THREE.Quaternion();
-                itemThreeMesh.getWorldQuaternion(worldQuaternion);
+                katamari.remove(item);
+                scene.add(item);
+                item.traverse(obj => { if(obj.isMesh) { obj.material.opacity = 1; obj.material.transparent = false; }});
 
-                // Detach from Katamari group and add back to scene
-                katamari.remove(itemThreeMesh);
-                scene.add(itemThreeMesh);
-                console.log(`Shed item '${itemThreeMesh.userData.size.toFixed(2)}m' detached from Katamari.`);
+                const newBody = new CANNON.Body({ mass: item.userData.size * 5, shape: item.userData.cannonShape });
+                newBody.position.copy(worldPos);
+                newBody.quaternion.copy(worldQuat);
+                newBody.userData = { threeMesh: item };
+                world.addBody(newBody);
+                physicsBodies.push(newBody);
 
-                // Ensure the shed item is immediately fully visible
-                itemThreeMesh.traverse(function (object) {
-                    if (object.isMesh) {
-                        object.material.opacity = 1;
-                        object.material.transparent = false; // Make it opaque again
-                    }
-                });
-                itemThreeMesh.userData.isFadingIn = false; // Clear any lingering fade-in state
-                itemThreeMesh.userData.fadeStartTime = 0; // Reset fade start time
+                const impulseDir = newBody.position.vsub(katamariBody.position).unit();
+                impulseDir.scale(20, impulseDir);
+                newBody.applyImpulse(impulseDir, newBody.position);
 
-                // Create a new Cannon.js body for the shed item using its original shape
-                const shedItemSize = itemThreeMesh.userData.size;
-                const newCannonShape = itemThreeMesh.userData.cannonShape; // Retrieve the original shape
-                const shedItemBody = new CANNON.Body({ mass: shedItemSize * 5, shape: newCannonShape });
-                shedItemBody.position.copy(worldPosition);
-                shedItemBody.quaternion.copy(worldQuaternion);
-                shedItemBody.userData = { threeMesh: itemThreeMesh };
-                world.addBody(shedItemBody); // Use world.addBody for cannon-es
-                physicsBodies.push(shedItemBody);
-                console.log("Shed item re-added to physics world.");
+                createParticles(worldPos, item.isGroup ? item.children[0].material.color : item.material.color, 'shed');
 
-                // Apply a stronger outward impulse to the shed item for the "pop" animation
-                const impulseDirection = new CANNON.Vec3();
-                shedItemBody.position.vsub(katamariBody.position, impulseDirection);
-                impulseDirection.normalize();
-                impulseDirection.scale(20, impulseDirection); // Increased outward push
-                shedItemBody.applyImpulse(impulseDirection, shedItemBody.position);
-                console.log("Applied impulse to shed item.");
-
-                // Create particles for shedding
-                createParticles(worldPosition, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'shed');
-
-                // Shrink Katamari
-                katamariRadius -= shedItemSize * 0.05; // Reverse growth factor
-                katamariRadius = Math.max(2, katamariRadius); // Don't shrink below initial size
-
-                // Update UI and Katamari visual/physics size
+                katamariRadius = Math.max(2, katamariRadius - item.userData.size * 0.05);
                 itemsCollectedCount--;
-                itemsCollectedUI.textContent = itemsCollectedCount;
-                // Update Katamari's visual scale and physics body radius
-                const scaleFactor = katamariRadius / 2;
-                katamari.scale.set(scaleFactor, scaleFactor, scaleFactor);
-                const katamariSphereShape = katamariBody.shapes[0];
-                if (katamariSphereShape instanceof CANNON.Sphere) {
-                    katamariSphereShape.radius = katamariRadius;
-                }
-                // katamariBody.position.y = katamariRadius; // Removed: Let physics handle Y position
-                // katamari.position.y = katamariRadius; // Removed: Let physics handle Y position
             }
-            console.log("Finished shedding items.");
+            itemsCollectedUI.textContent = itemsCollectedCount;
+            const scale = katamariRadius / 2;
+            katamari.scale.setScalar(scale);
+            katamariBody.shapes[0].radius = katamariRadius;
         }
 
-        // --- AUDIO FUNCTIONS ---
+        function attachItem(item, body) {
+            world.removeBody(body);
+            physicsBodies = physicsBodies.filter(b => b !== body);
+            itemsToCollect = itemsToCollect.filter(i => i !== item);
+            itemsCollectedCount++;
+            itemsCollectedUI.textContent = itemsCollectedCount;
+
+            const worldPos = new THREE.Vector3();
+            item.getWorldPosition(worldPos);
+            const dir = worldPos.sub(katamari.position).normalize();
+            
+            katamari.attach(item);
+            item.position.copy(dir.multiplyScalar(katamariRadius));
+            
+            const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            targetQuat.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI * 2));
+            item.quaternion.copy(targetQuat.premultiply(katamari.quaternion.clone().invert()));
+
+            growKatamari(item.userData.size);
+            wobble.active = true;
+            wobble.time = 0;
+            createParticles(worldPos, item.isGroup ? item.children[0].material.color : item.material.color, 'collect');
+        }
+
+        // --- AUDIO ---
         function playRollingSound(speed) {
-            if (Tone.context.state !== 'running') {
-                Tone.start(); // Use Tone.start()
-            }
-            if (rollingSynth.state === 'stopped' || rollingSynth.state === 'idle') {
-                rollingSynth.triggerAttack(Tone.context.now());
-            }
-            const maxSpeed = 20;
-            const normalizedSpeed = Math.min(1, speed / maxSpeed);
-            const minVolumeDb = -40;
-            const maxVolumeDb = -10;
-            rollingSynth.volume.value = THREE.MathUtils.lerp(minVolumeDb, maxVolumeDb, normalizedSpeed);
-            rollingSynth.noise.playbackRate = 0.5 + normalizedSpeed * 1.5;
+            if (rollingSynth.state !== 'started') rollingSynth.triggerAttack(Tone.now());
+            const normSpeed = Math.min(1, speed / 20);
+            rollingSynth.volume.value = THREE.MathUtils.lerp(-45, -25, normSpeed); // Lowered volume range
+            rollingSynth.noise.playbackRate = 0.2 + normSpeed * 1.2; // Adjusted playback rate
         }
-
-        function stopRollingSound() {
-            if (rollingSynth.state === 'started') {
-                rollingSynth.triggerRelease(Tone.context.now());
-            }
-        }
-
+        function stopRollingSound() { if (rollingSynth && rollingSynth.state === 'started') rollingSynth.triggerRelease(Tone.now()); }
         function playCollectionSound() {
-            if (Tone.context.state !== 'running') {
-                Tone.start(); // Use Tone.start()
-            }
-            const now = Tone.context.now();
+            const now = Tone.now();
             if (now - lastCollectionSoundTime > collectionSoundCooldown) {
                 collectionSynth.triggerAttackRelease("C5", "8n", now);
                 lastCollectionSoundTime = now;
             }
         }
-
-        function attachItem(itemThreeMesh, itemCannonBody) {
-            console.log(`Attaching item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
-            // Remove from Cannon.js world
-            world.removeBody(itemCannonBody);
-            physicsBodies = physicsBodies.filter(body => body !== itemCannonBody);
-            console.log("Item removed from physics world.");
-
-            // Remove from Three.js items to collect list
-            itemsToCollect = itemsToCollect.filter(item => item !== itemThreeMesh);
-            console.log("Item removed from itemsToCollect array.");
-
-            // Increment collected items count and update UI
-            itemsCollectedCount++;
-            itemsCollectedUI.textContent = itemsCollectedCount;
-            console.log(`Items collected: ${itemsCollectedCount}`);
-
-            // Calculate position on Katamari surface
-            const itemWorldPosition = new THREE.Vector3();
-            itemThreeMesh.getWorldPosition(itemWorldPosition);
-            const katamariWorldPosition = new THREE.Vector3();
-            katamari.getWorldPosition(katamariWorldPosition);
-
-            const directionFromKatamari = new THREE.Vector3().subVectors(itemWorldPosition, katamariWorldPosition).normalize();
-            
-            // Attach item to Katamari's Three.js group
-            katamari.attach(itemThreeMesh);
-            console.log("Item attached to Katamari Three.js group.");
-
-            // Position item on the surface of the Katamari
-            const newLocalPosition = directionFromKatamari.multiplyScalar(katamariRadius);
-            itemThreeMesh.position.copy(newLocalPosition);
-
-            // Orient the item to face outwards from the Katamari, with a random rotation around its axis
-            const targetQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), directionFromKatamari);
-            const randomRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI * 2);
-            targetQuaternion.multiply(randomRotation);
-
-            // Convert world quaternion to local quaternion relative to Katamari
-            const katamariWorldQuaternion = new THREE.Quaternion();
-            katamari.getWorldQuaternion(katamariWorldQuaternion);
-            const katamariWorldQuaternionInverse = katamariWorldQuaternion.clone().invert();
-            const newLocalQuaternion = katamariWorldQuaternionInverse.multiply(targetQuaternion);
-            itemThreeMesh.quaternion.copy(newLocalQuaternion);
-            console.log("Item positioned and oriented on Katamari surface.");
-
-            growKatamari(itemThreeMesh.userData.size); // Grow Katamari based on item size
-            console.log("Katamari growth initiated.");
-
-            // Create particles for collection
-            createParticles(itemWorldPosition, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'collect');
+        function playBumpSound() {
+            const now = Tone.now();
+            if (now - lastBumpSoundTime > bumpSoundCooldown) {
+                bumpSynth.triggerAttackRelease("C3", "8n", now);
+                lastBumpSoundTime = now;
+            }
         }
 
-        function updateCamera(currentSpeed) { // Now receives smoothedSpeed
-            // Calculate desired camera position relative to Katamari
-            const desiredOffset = new THREE.Vector3(0, 10 + katamariRadius * 1.5, 15 + katamariRadius * 2.5);
-            const desiredPosition = katamari.position.clone().add(desiredOffset);
-
-            // Smoothly interpolate camera position
-            camera.position.lerp(desiredPosition, 0.05);
-            
-            // Revert to looking directly at the Katamari's position
+        // --- CAMERA ---
+        function updateCamera(speed) {
+            const offset = new THREE.Vector3(0, 10 + katamariRadius * 1.5, 15 + katamariRadius * 2.5);
+            const desiredPos = katamari.position.clone().add(offset);
+            camera.position.lerp(desiredPos, 0.05);
             camera.lookAt(katamari.position); 
-
-            // Adjust FOV based on smoothed speed for a sense of motion blur/speed
-            const maxFov = 90, minFov = 70, speedThreshold = 20;
-            const fov = THREE.MathUtils.lerp(minFov, maxFov, Math.min(1, currentSpeed / speedThreshold));
-            camera.fov = fov;
+            camera.fov = THREE.MathUtils.lerp(70, 90, Math.min(1, speed / 20));
             camera.updateProjectionMatrix();
         }
 
-        // Initialize the game when the window loads
-        window.onload = function() {
-            init();
-        }
+        // --- START ---
+        window.onload = init;
     </script>
 </body>
 </html>
