@@ -1934,18 +1934,10 @@
 
         // New function for non-linear growth calculation
         function getGrowthContribution(itemSize, katamariRadius) {
-            const baseGrowthFactor = 0.05; // Original base factor
-
-            // Non-linear scaling: smaller items provide greater relative growth, larger items diminishing returns
-            // Using a square root relationship between item size and katamari radius for growth.
-            // This means the growth contribution is proportional to the geometric mean of itemSize and katamariRadius.
-            // If itemSize is much smaller than katamariRadius, the ratio (itemSize/katamariRadius) is small,
-            // but the square root of (itemSize * katamariRadius) will still give a meaningful contribution.
-            // If itemSize is much larger, the growth will be significant, but the *relative* growth (itemSize/katamariRadius)
-            // will be less impactful than a linear addition.
-            const effectiveGrowth = Math.sqrt(itemSize * katamariRadius) * baseGrowthFactor;
-
-            return effectiveGrowth;
+            const baseGrowth = 0.05; // Base growth factor
+            const growthRatio = Math.min(1, itemSize / katamariRadius);
+            const growthAmount = baseGrowth * Math.pow(growthRatio, 0.7);
+            return growthAmount;
         }
 
         // New function to shed items from the Katamari
