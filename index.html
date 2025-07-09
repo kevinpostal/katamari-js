@@ -733,7 +733,7 @@
                 const color = itemColors[Math.floor(Math.random() * itemColors.length)];
 
                 switch (itemName) {
-                    case 'Car':
+                    case 'Car': // Medium (effective size 1.6m - 5.6m)
                         size = Math.random() * 2 + 0.8;
                         // Main body
                         const carBodyGeo = new THREE.BoxGeometry(size * 2, size * 0.8, size);
@@ -768,7 +768,7 @@
                         cannonShape = new CANNON.Box(new CANNON.Vec3(size, size * 0.4, size * 0.5));
                         break;
 
-                    case 'Tree':
+                    case 'Tree': // Small/Medium (effective size 0.6m - 9m depending on type)
                         // Randomly select a tree type
                         const treeType = Math.random();
                         if (treeType < 0.33) { // Tall and slender tree
@@ -835,7 +835,7 @@
                         }
                         break;
 
-                    case 'House':
+                    case 'House': // Small/Medium (effective size 1.5m - 4.5m)
                         size = Math.random() * 2 + 1;
                         itemGroup = new THREE.Group();
                         // Main body
@@ -877,7 +877,7 @@
                         cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.75, size * 0.75, size * 0.75));
                         break;
 
-                    case 'Mailbox':
+                    case 'Mailbox': // Tiny/Small (effective size 0.45m - 1.65m)
                         size = Math.random() * 0.8 + 0.3;
                         itemGroup = new THREE.Group();
 
@@ -904,7 +904,7 @@
                         cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.4, size * 0.75, size * 0.25));
                         break;
 
-                    case 'Fire Hydrant':
+                    case 'Fire Hydrant': // Tiny/Small (effective size 0.45m - 1.5m)
                         size = Math.random() * 0.7 + 0.3;
                         itemGroup = new THREE.Group();
 
@@ -935,7 +935,7 @@
                         cannonShape = new CANNON.Cylinder(size * 0.5, size * 0.5, size * 1.5, 16);
                         break;
 
-                    case 'Traffic Cone':
+                    case 'Traffic Cone': // Tiny/Small (effective size 0.3m - 1.05m)
                         size = Math.random() * 0.5 + 0.2;
                         const coneGeo = new THREE.ConeGeometry(size * 0.5, size * 1.5, 16);
                         const coneMat = new THREE.MeshStandardMaterial({ color: 0xFFA500, roughness: 0.6, transparent: true, opacity: 0 });
@@ -944,7 +944,7 @@
                         cannonShape = new CANNON.Cylinder(0, size * 0.5, size * 1.5, 16);
                         break;
 
-                    case 'Hot Dog Stand':
+                    case 'Hot Dog Stand': // Small/Medium (effective size 1.6m - 4.6m)
                         size = Math.random() * 1.5 + 0.8;
                         itemGroup = new THREE.Group();
 
@@ -979,7 +979,7 @@
                         cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.75, size * 0.5, size * 0.4));
                         break;
                     
-                    case 'Asteroid':
+                    case 'Asteroid': // Small/Medium (effective size 2m - 8m)
                         size = Math.random() * 3 + 1;
                         const asteroidGeo = new THREE.IcosahedronGeometry(size, 0); // Low poly sphere
                         const asteroidMat = new THREE.MeshStandardMaterial({ color: 0x696969, roughness: 0.9, flatShading: true, transparent: true, opacity: 0 });
@@ -988,7 +988,7 @@
                         cannonShape = new CANNON.Sphere(size);
                         break;
 
-                    case 'Satellite':
+                    case 'Satellite': // Small/Medium (effective size 1.25m - 5m)
                         size = Math.random() * 1.5 + 0.5;
                         itemGroup = new THREE.Group();
 
@@ -1009,7 +1009,7 @@
                         cannonShape = new CANNON.Box(new CANNON.Vec3(size * 1.25, size * 0.25, size * 0.75));
                         break;
 
-                    case 'Space Debris':
+                    case 'Space Debris': // Tiny/Small (effective size 0.2m - 1m)
                         size = Math.random() * 0.8 + 0.2;
                         let debrisGeo;
                         const debrisMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7, transparent: true, opacity: 0 });
@@ -1028,7 +1028,7 @@
                         threeMesh.userData.size = size;
                         break;
 
-                    case 'Comet Fragment':
+                    case 'Comet Fragment': // Tiny/Small (effective size 0.6m - 2.4m)
                         size = Math.random() * 1.2 + 0.4;
                         const cometGeo = new THREE.IcosahedronGeometry(size, 1); // Slightly more detailed
                         const cometMat = new THREE.MeshStandardMaterial({ color: 0xADD8E6, roughness: 0.8, flatShading: true, transparent: true, opacity: 0 });
@@ -1037,7 +1037,7 @@
                         cannonShape = new CANNON.Sphere(size);
                         break;
 
-                    case 'Moon Rock':
+                    case 'Moon Rock': // Tiny/Small (effective size 0.6m - 2.4m)
                         size = Math.random() * 1.5 + 0.5;
                         const moonRockGeo = new THREE.DodecahedronGeometry(size, 0); // Irregular shape
                         const moonRockMat = new THREE.MeshStandardMaterial({ color: 0xA9A9A9, roughness: 0.9, flatShading: true, transparent: true, opacity: 0 });
@@ -1046,7 +1046,7 @@
                         cannonShape = new CANNON.Sphere(size);
                         break;
 
-                    case 'Star Dust Cluster':
+                    case 'Star Dust Cluster': // Tiny/Small (effective size 0.2m - 1.4m)
                         size = Math.random() * 0.6 + 0.1;
                         itemGroup = new THREE.Group();
                         const particleMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.8 });
@@ -1065,7 +1065,7 @@
                         cannonShape = new CANNON.Sphere(size);
                         break;
 
-                    default: // Generic items (Rock, Bush, Bench, Lamp Post, Trash Can)
+                    default: // Generic items (Rock, Bush, Bench, Lamp Post, Trash Can) - Tiny/Small (effective size 0.5m - 2m)
                         size = Math.random() * 1.5 + 0.5;
                         let geo;
                         switch (itemName) {
@@ -1614,11 +1614,28 @@
 
         // Function to grow Katamari by accretion
         function growKatamari(itemSize) {
-            const growthFactor = 0.05; // How much collecting an item contributes to growth
-            katamariRadius += itemSize * growthFactor;
+            // Calculate growth based on non-linear scaling
+            const growthAmount = getGrowthContribution(itemSize, katamariRadius);
+            katamariRadius += growthAmount;
 
             // Update Katamari's visual geometry and physics body
             updateKatamariVisualsAndPhysics();
+        }
+
+        // New function for non-linear growth calculation
+        function getGrowthContribution(itemSize, katamariRadius) {
+            const baseGrowthFactor = 0.05; // Original base factor
+
+            // Non-linear scaling: smaller items provide greater relative growth, larger items diminishing returns
+            // Using a square root relationship between item size and katamari radius for growth.
+            // This means the growth contribution is proportional to the geometric mean of itemSize and katamariRadius.
+            // If itemSize is much smaller than katamariRadius, the ratio (itemSize/katamariRadius) is small,
+            // but the square root of (itemSize * katamariRadius) will still give a meaningful contribution.
+            // If itemSize is much larger, the growth will be significant, but the *relative* growth (itemSize/katamariRadius)
+            // will be less impactful than a linear addition.
+            const effectiveGrowth = Math.sqrt(itemSize * katamariRadius) * baseGrowthFactor;
+
+            return effectiveGrowth;
         }
 
         // New function to shed items from the Katamari
@@ -1681,9 +1698,7 @@
                 // Create particles for shedding
                 createParticles(worldPosition, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'shed');
 
-                // Shrink Katamari
-                katamariRadius -= shedItemSize * 0.05;
-                katamariRadius = Math.max(2, katamariRadius); // Don't shrink below initial size
+                // Katamari does not shrink when shedding items
 
                 // Update UI and Katamari visual/physics size
                 itemsCollectedCount--;
