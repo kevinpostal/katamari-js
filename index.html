@@ -142,6 +142,7 @@
             <div id="progress-bar"></div>
         </div>
         <div>Target Size: <span id="target-size">100.00m</span></div>
+        <div id="power-up-status"></div>
         <button id="gyro-button">Toggle Gyro</button>
     </div>
     <div id="controls-info">
@@ -163,14 +164,14 @@
 
         // --- SCENE/PHYSICS SETUP ---
         let scene, camera, renderer, world;
-        let katamari, ground, groundBody;
+        let katamari, ground, groundBody, suckingEffect;
         let itemsToCollect = [], physicsBodies = []; // physicsBodies will now only store item bodies
         let mountains = []; // Array to store mountain objects
         let katamariRadius = 2, targetKatamariSize = 100, itemsCollectedCount = 0;
         let rollingSynth, collectionSynth, shedSound; // Tone.js synthesizers
         const keys = {}, clock = new THREE.Clock();
         // moveSpeed for direct Three.js movement, damping for item physics
-        const moveSpeed = 15, damping = 0.1, timeStep = 1 / 60; 
+        let moveSpeed = 15, damping = 0.1, timeStep = 1 / 60; 
         let currentLevel = 1;
         let isGeneratingLevel = false; // Flag to prevent physics updates during level generation
         let smoothedSpeed = 0; // New variable for smoothing camera FOV changes
@@ -198,6 +199,12 @@
         // Katamari physics body
         let katamariBody;
 
+        // --- Power-up Variables ---
+        let activePowerUps = {}; // To store active power-ups and their expiry times
+        const powerUpTypes = ['magnetism', 'speedBoost', 'stickyCoating'];
+        const powerUpDuration = 5000; // 5 seconds in milliseconds
+        let powerUpItems = []; // To store the visual meshes of power-up items
+
         // Particles array
         let particles = [];
 
@@ -210,8 +217,8 @@
             active: false
         };
         // Make touch deadzone screen-size relative
-        const touchDeadZone = Math.min(30, window.innerWidth * 0.05); 
-        const touchSensitivity = 0.5; // Adjust this value to change touch responsiveness
+        const touchDeadZone = Math.min(50, window.innerWidth * 0.1); 
+        const touchSensitivity = 0.7; // Adjust this value to change touch responsiveness
 
         // --- FPS Counter ---
         const fpsCounter = {
@@ -247,7 +254,7 @@
         // --- Gyroscope Variables ---
         let useGyroscope = false;
         let gyro = { alpha: 0, beta: 0, gamma: 0 }; // Store latest gyro data
-        const gyroSensitivity = 0.3; // Adjust for more/less sensitive gyro controls
+        const gyroSensitivity = 0.5; // Adjust for more/less sensitive gyro controls
 
         // --- UI ELEMENTS ---
         const katamariSizeUI = document.getElementById('katamari-size');
@@ -499,6 +506,8 @@
             if (katamari) scene.remove(katamari);
             if (ground) scene.remove(ground);
             itemsToCollect.forEach(item => scene.remove(item));
+            powerUpItems.forEach(item => scene.remove(item));
+            powerUpItems = [];
             physicsBodies.forEach(body => world.removeBody(body)); // Use world.removeBody for cannon-es
             
             // Re-initialize Cannon.js world for items
@@ -562,6 +571,7 @@
             katamari.position.y = katamariRadius; // Keep it on the ground
             katamari.scale.set(1, 1, 1); // Initial scale
             scene.add(katamari);
+            suckingEffect = createSuckingEffect();
             
             // Create Katamari physics body
             const katamariShape = new CANNON.Sphere(katamariRadius);
@@ -580,6 +590,7 @@
             lastGenerationPosition.copy(katamari.position); // Initialize generation position
             console.log("Creating initial collectible items...");
             createCollectibleItems(200, currentTheme.items, new THREE.Vector3(0,0,0), 180); // Initial generation around origin (reduced count)
+            createPowerUpItems(5); // Create 5 power-ups
             console.log("Initial collectible items created.");
             isGeneratingLevel = false; // Clear flag after level generation is complete
             console.log("generateNewLevel finished.");
@@ -1465,6 +1476,63 @@
             console.log(`createCollectibleItems: Finished creating ${count} items.`);
         }
 
+        function createPowerUpItems(count) {
+            console.log(`Creating ${count} power-up items.`);
+            const powerUpColors = {
+                magnetism: 0xFFD700, // Gold
+                speedBoost: 0x00BFFF, // Deep Sky Blue
+                stickyCoating: 0x32CD32, // Lime Green
+            };
+            const powerUpGeometries = {
+                magnetism: new THREE.TorusGeometry(0.8, 0.3, 16, 100),
+                speedBoost: new THREE.ConeGeometry(0.8, 1.5, 32),
+                stickyCoating: new THREE.DodecahedronGeometry(1),
+            };
+
+            for (let i = 0; i < count; i++) {
+                const type = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+                const material = new THREE.MeshStandardMaterial({
+                    color: powerUpColors[type],
+                    metalness: 0.8,
+                    roughness: 0.2,
+                    emissive: powerUpColors[type],
+                    emissiveIntensity: 0.5,
+                });
+                const powerUpMesh = new THREE.Mesh(powerUpGeometries[type], material);
+                powerUpMesh.userData.type = type;
+                powerUpMesh.userData.isPowerUp = true;
+
+                const x = (Math.random() - 0.5) * mapBoundary * 1.5;
+                const z = (Math.random() - 0.5) * mapBoundary * 1.5;
+                powerUpMesh.position.set(x, 2, z);
+                scene.add(powerUpMesh);
+                powerUpItems.push(powerUpMesh);
+            }
+        }
+
+        function createSuckingEffect() {
+            const geometry = new THREE.ConeGeometry(5, 10, 32, 1, true);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.3,
+                wireframe: true
+            });
+            const suckingEffect = new THREE.Mesh(geometry, material);
+            suckingEffect.rotation.x = Math.PI / 2;
+            suckingEffect.visible = false;
+            katamari.add(suckingEffect);
+            return suckingEffect;
+        }
+
+        let screenShake = { intensity: 0, duration: 0, startTime: 0 };
+
+        function shakeScreen(intensity) {
+            screenShake.intensity = intensity;
+            screenShake.duration = 200; // ms
+            screenShake.startTime = Date.now();
+        }
+
         function resetKatamariPosition() {
             console.log("Resetting Katamari position...");
             if (katamariBody) {
@@ -1488,6 +1556,7 @@
         }
 
         function animate() {
+            updatePowerUps();
             fpsCounter.update();
             requestAnimationFrame(animate);
 
@@ -1736,6 +1805,15 @@
             // Clean up old items that are too far away
             cleanupOldItems();
 
+            // Check for power-up collection
+            for (let i = powerUpItems.length - 1; i >= 0; i--) {
+                const powerUpMesh = powerUpItems[i];
+                const distance = katamari.position.distanceTo(powerUpMesh.position);
+                if (distance < katamariRadius + 1) { // 1 is the approximate radius of power-ups
+                    handlePowerUpCollection(powerUpMesh);
+                }
+            }
+
             updateCamera(smoothedSpeed); // Pass smoothedSpeed to updateCamera
             renderer.render(scene, camera); // Render the scene
 
@@ -1796,8 +1874,90 @@
                 // Check if the body is still in the world to prevent attaching the same item multiple times per physics step.
                 if (world.bodies.includes(itemCannonBody)) {
                     console.log(`Collecting item via physics collision: ${itemThreeMesh.userData.size.toFixed(2)}m`);
+                    if (itemThreeMesh.userData.size > katamariRadius * 0.2) {
+                        shakeScreen(0.1);
+                    }
                     attachItem(itemThreeMesh, itemCannonBody);
-                    playCollectionSound();
+                }
+            }
+        }
+
+        function handlePowerUpCollection(powerUpMesh) {
+            const type = powerUpMesh.userData.type;
+            console.log(`Collected power-up: ${type}`);
+
+            // Activate the power-up
+            activePowerUps[type] = Date.now() + powerUpDuration;
+
+            // Remove the power-up from the scene and the array
+            scene.remove(powerUpMesh);
+            powerUpItems = powerUpItems.filter(item => item !== powerUpMesh);
+
+            // Play a sound for power-up collection
+            collectionSynth.triggerAttackRelease("C5", "8n");
+        }
+
+        function updatePowerUps() {
+            const now = Date.now();
+            let speedBoostActive = false;
+            let magnetismActive = false;
+            let powerUpStatusHTML = '';
+
+            for (const type in activePowerUps) {
+                const expiryTime = activePowerUps[type];
+                if (now > expiryTime) {
+                    delete activePowerUps[type];
+                    console.log(`Power-up expired: ${type}`);
+                    continue;
+                }
+
+                const remainingTime = ((expiryTime - now) / 1000).toFixed(1);
+                powerUpStatusHTML += `<div>${type}: ${remainingTime}s</div>`;
+
+                switch (type) {
+                    case 'magnetism':
+                        magnetismActive = true;
+                        const magnetismRange = katamariRadius * 3;
+                        physicsBodies.forEach(body => {
+                            if (body.userData && body.userData.threeMesh) {
+                                const item = body.userData.threeMesh;
+                                const distance = katamari.position.distanceTo(item.position);
+                                if (distance < magnetismRange && katamariRadius > item.userData.size) {
+                                    const direction = new THREE.Vector3().subVectors(katamari.position, item.position).normalize();
+                                    const force = direction.multiplyScalar(300);
+                                    body.applyForce(new CANNON.Vec3(force.x, force.y, force.z), body.position);
+                                }
+                            }
+                        });
+                        break;
+                    case 'speedBoost':
+                        speedBoostActive = true;
+                        break;
+                    case 'stickyCoating':
+                        // This is handled in checkMountainCollisions
+                        break;
+                }
+            }
+
+            document.getElementById('power-up-status').innerHTML = powerUpStatusHTML;
+
+            // Apply speed boost
+            if (speedBoostActive) {
+                moveSpeed = 30;
+            } else {
+                moveSpeed = 15;
+            }
+
+            // Update sucking effect
+            if (suckingEffect) {
+                if (magnetismActive) {
+                    suckingEffect.visible = true;
+                    suckingEffect.scale.x = katamariRadius * 0.5;
+                    suckingEffect.scale.y = katamariRadius * 0.5;
+                    suckingEffect.scale.z = katamariRadius * 0.5;
+                    suckingEffect.material.opacity = 0.3 + Math.sin(Date.now() * 0.01) * 0.2;
+                } else {
+                    suckingEffect.visible = false;
                 }
             }
         }
@@ -1859,7 +2019,12 @@
                         // Check cooldown before shedding items
                         if (currentTime - lastShedTime > shedCooldown) {
                             shedSound.triggerAttackRelease("C2", "8n"); // Play sound on bump
-                            shedItems(itemsToShed); 
+                            shakeScreen(0.5); // Add screen shake
+                            let shedCount = itemsToShed;
+                            if (activePowerUps['stickyCoating']) {
+                                shedCount = Math.floor(shedCount * 0.5); // 50% reduction
+                            }
+                            shedItems(shedCount); 
                             lastShedTime = currentTime; // Update last shed time
                         }
                     }
@@ -1868,9 +2033,9 @@
         }
 
         // New function to create and manage particles
-        function createParticles(position, color, type) {
-            const numParticles = type === 'shed' ? 15 : 10; // More particles for shedding
-            const particleSize = 0.1;
+        function createParticles(position, color, type, size = 1) {
+            const numParticles = type === 'shed' ? 15 : 10 * Math.log(size + 1);
+            const particleSize = 0.1 * Math.log(size + 1);
             const particleMaterial = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1 });
 
             for (let i = 0; i < numParticles; i++) {
@@ -1879,11 +2044,11 @@
                 particle.position.copy(position);
 
                 // Set random velocity
-                const speed = type === 'shed' ? Math.random() * 5 + 3 : Math.random() * 2 + 1;
+                const speed = type === 'shed' ? Math.random() * 5 + 3 : (Math.random() * 2 + 1) * size;
                 const angle = Math.random() * Math.PI * 2;
                 const velocityX = Math.cos(angle) * speed;
                 const velocityZ = Math.sin(angle) * speed;
-                const velocityY = Math.random() * 3 + 1; // Always some upward velocity
+                const velocityY = (Math.random() * 3 + 1) * size; // Always some upward velocity
 
                 particle.userData.velocity = new THREE.Vector3(velocityX, velocityY, velocityZ);
                 particle.userData.lifespan = Math.random() * 0.8 + 0.4; // Lifespan in seconds
@@ -1942,9 +2107,9 @@
 
         // New function for non-linear growth calculation
         function getGrowthContribution(itemSize, katamariRadius) {
-            const baseGrowth = 0.05; // Base growth factor
-            const growthRatio = Math.min(1, itemSize / katamariRadius);
-            const growthAmount = baseGrowth * Math.pow(growthRatio, 0.7);
+            const baseGrowth = 0.01; // Reduced base growth factor
+            const growthRatio = itemSize / katamariRadius;
+            const growthAmount = baseGrowth * Math.pow(growthRatio, 0.5) * Math.log(katamariRadius + 1);
             return growthAmount;
         }
 
@@ -2045,18 +2210,19 @@
             }
         }
 
-        function playCollectionSound() {
+        function playCollectionSound(size = 1) {
             if (Tone.context.state !== 'running') {
                 Tone.start(); // Use Tone.start()
             }
             const now = Tone.context.now();
             if (now - lastCollectionSoundTime > collectionSoundCooldown) {
-                collectionSynth.triggerAttackRelease("C5", "8n", now);
+                const note = 440 * Math.pow(2, (Math.log(size + 1) / Math.log(100)));
+                collectionSynth.triggerAttackRelease(note, "8n", now);
                 lastCollectionSoundTime = now;
             }
         }
 
-        function attachItem(itemThreeMesh, itemCannonBody, collisionEvent) {
+        function attachItem(itemThreeMesh, itemCannonBody) {
             console.log(`Attaching item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
             // Remove from Cannon.js world
             world.removeBody(itemCannonBody);
@@ -2068,6 +2234,13 @@
             // Increment collected items count and update UI
             itemsCollectedCount++;
             itemsCollectedUI.textContent = itemsCollectedCount;
+
+            // Create particle effect
+            const itemColor = itemThreeMesh.isGroup ? 0xffffff : itemThreeMesh.material.color;
+            createParticles(itemCannonBody.position, itemColor, 'collect', itemThreeMesh.userData.size);
+
+            // Play collection sound
+            playCollectionSound(itemThreeMesh.userData.size);
 
             // Calculate position on Katamari surface
             const itemWorldPosition = new THREE.Vector3();
@@ -2096,12 +2269,9 @@
             const katamariWorldQuaternionInverse = katamariWorldQuaternion.clone().invert();
             const newLocalQuaternion = katamariWorldQuaternionInverse.multiply(targetQuaternion);
             itemThreeMesh.quaternion.copy(newLocalQuaternion);
-            console.log("Item positioned and oriented on Katamari surface.");
 
-            growKatamari(itemThreeMesh.userData.size); // Grow Katamari based on item size
-            console.log("Katamari growth initiated.");
-
-            createParticles(itemWorldPosition, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'collect');
+            // Grow the Katamari
+            growKatamari(itemThreeMesh.userData.size);
         }
 
         function updateCamera(currentSpeed) { // Now receives smoothedSpeed
@@ -2112,6 +2282,16 @@
             // Smoothly interpolate camera position
             camera.position.lerp(desiredPosition, 0.05);
             
+            // Apply screen shake
+            if (Date.now() - screenShake.startTime < screenShake.duration) {
+                const percentComplete = (Date.now() - screenShake.startTime) / screenShake.duration;
+                const damper = 1 - percentComplete;
+                const x = (Math.random() - 0.5) * screenShake.intensity * damper;
+                const y = (Math.random() - 0.5) * screenShake.intensity * damper;
+                camera.position.x += x;
+                camera.position.y += y;
+            }
+
             // Revert to looking directly at the Katamari's position
             camera.lookAt(katamari.position); 
 
