@@ -137,6 +137,7 @@
         <div>Size: <span id="katamari-size">2.00m</span></div>
         <div>Speed: <span id="katamari-speed">0.00m/s</span></div>
         <div>Items Collected: <span id="items-collected">0</span></div>
+        <div>FPS: <span id="fps">--</span></div>
         <div id="progress-container">
             <div id="progress-bar"></div>
         </div>
@@ -154,6 +155,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
     <!-- Tone.js Library for Audio Synthesis (Loaded globally) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    
 
     <script type="module">
         // Cannon-ES Library for Physics (Moved into the main module script)
@@ -211,6 +213,37 @@
         const touchDeadZone = Math.min(30, window.innerWidth * 0.05); 
         const touchSensitivity = 0.5; // Adjust this value to change touch responsiveness
 
+        // --- FPS Counter ---
+        const fpsCounter = {
+            dom: null, // Will be assigned in init
+            frames: [],
+            lastFrameTimeStamp: performance.now(),
+            init: function() {
+                this.dom = document.getElementById('fps');
+            },
+            update: function() {
+                const now = performance.now();
+                const delta = now - this.lastFrameTimeStamp;
+                this.lastFrameTimeStamp = now;
+                const fps = 1 / (delta / 1000);
+                
+                this.frames.push(fps);
+                if (this.frames.length > 60) {
+                    this.frames.shift();
+                }
+                
+                let mean = 0;
+                for(const frame of this.frames) {
+                    mean += frame;
+                }
+                mean /= this.frames.length;
+
+                if (this.dom) {
+                    this.dom.textContent = Math.round(mean);
+                }
+            }
+        };
+
         // --- Gyroscope Variables ---
         let useGyroscope = false;
         let gyro = { alpha: 0, beta: 0, gamma: 0 }; // Store latest gyro data
@@ -229,6 +262,8 @@
 
         // --- INIT ---
         async function init() {
+            fpsCounter.init();
+
             // Debugging: Check Tone object
             console.log("Tone object after script load:", Tone);
             console.log("Type of Tone.NoiseSynth:", typeof Tone.NoiseSynth);
@@ -537,7 +572,9 @@
                 linearDamping: 0.3, // Reduced linear damping for faster falling
                 angularDamping: 0.4 // To slow rotation
             });
+            katamariBody.addEventListener('collide', handleKatamariCollision);
             world.addBody(katamariBody); // Use world.addBody for cannon-es
+            updateKatamariPhysics(); // Initial physics update for Katamari
             console.log("Katamari created and added to physics world.");
 
             lastGenerationPosition.copy(katamari.position); // Initialize generation position
@@ -1141,6 +1178,7 @@
         }
 
         function animate() {
+            fpsCounter.update();
             requestAnimationFrame(animate);
 
             if (isGeneratingLevel || !katamari || !world) {
@@ -1363,11 +1401,11 @@
             katamariBody.position.z = THREE.MathUtils.clamp(katamariBody.position.z, -mapBoundary + katamariRadius, mapBoundary - katamariRadius);
             // Removed: katamariBody.position.y = katamariRadius; // Let physics handle Y position
 
+            katamariBody.position.y = katamariRadius; // Keep it on the ground
             // Also update the Three.js Katamari position to match the clamped physics body position
             katamari.position.copy(katamariBody.position);
 
 
-            checkCollisions(); // Check for collisions with items
             checkMountainCollisions(); // Check for collisions with mountains
 
             // Dynamic item generation based on travel distance
@@ -1418,26 +1456,28 @@
             }
         }
 
-        // --- COLLISION DETECTION (Three.js based for Katamari-Item) ---
-        function checkCollisions() {
-            const katamariSphere = new THREE.Sphere(katamari.position, katamariRadius);
+        // --- COLLISION DETECTION (Physics-based for Katamari-Item) ---
+        function handleKatamariCollision(event) {
+            const otherBody = event.body;
 
-            for (let i = itemsToCollect.length - 1; i >= 0; i--) {
-                const itemThreeMesh = itemsToCollect[i];
-                const itemCannonBody = physicsBodies.find(body => body.userData?.threeMesh === itemThreeMesh);
+            // Ignore collisions with non-item bodies (like the ground)
+            if (!otherBody.userData || !otherBody.userData.threeMesh) {
+                return;
+            }
 
-                if (!itemCannonBody) continue; // Should not happen if arrays are in sync
+            const itemThreeMesh = otherBody.userData.threeMesh;
+            const itemCannonBody = otherBody;
 
-                const itemSphere = new THREE.Sphere(itemThreeMesh.position, itemThreeMesh.userData.size / 2);
+            // Ensure it's a collectible item that hasn't been picked up yet
+            if (!itemsToCollect.includes(itemThreeMesh)) {
+                return;
+            }
 
-                // Simple sphere-sphere intersection check
-                const distance = katamariSphere.center.distanceTo(itemSphere.center);
-                const combinedRadius = katamariSphere.radius + itemSphere.radius;
-
-                // Collection threshold: Only collect if the item is smaller than 1.5x Katamari radius
-                const collectionThreshold = 1.5; // Katamari must be 1.5x larger than item
-                if (distance < combinedRadius && itemThreeMesh.userData.size < katamariRadius / collectionThreshold) {
-                    console.log(`Collecting item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
+            // NEW COLLECTION LOGIC: Collect if Katamari radius is larger than the item's size.
+            if (katamariRadius > itemThreeMesh.userData.size) {
+                // Check if the body is still in the world to prevent attaching the same item multiple times per physics step.
+                if (world.bodies.includes(itemCannonBody)) {
+                    console.log(`Collecting item via physics collision: ${itemThreeMesh.userData.size.toFixed(2)}m`);
                     attachItem(itemThreeMesh, itemCannonBody);
                     playCollectionSound();
                 }
@@ -1537,24 +1577,48 @@
             }
         }
 
-        // Function to grow Katamari by scaling
+        // Function to update Katamari's physics properties (mass and shape)
+        function updateKatamariPhysics() {
+            // Update shape
+            // Dispose of old shape if it's not the initial one, though Cannon.js handles this internally when replacing
+            const newShape = new CANNON.Sphere(katamariRadius);
+            katamariBody.shapes = [newShape]; // Replace the old shape with the new one
+            katamariBody.shapeOffsets = [new CANNON.Vec3(0, 0, 0)]; // Reset offset if needed
+            katamariBody.shapeOrientations = [new CANNON.Quaternion(0, 0, 0, 1)]; // Reset orientation if needed
+            
+            // Update mass properties: mass = k * radius^3. Here k = 100 / (2^3) = 12.5
+            // So, mass = 12.5 * radius^3
+            katamariBody.mass = 12.5 * Math.pow(katamariRadius, 3);
+            katamariBody.updateMassProperties(); // Recalculate inertia and other properties
+            console.log(`Katamari physics updated: Radius=${katamariRadius.toFixed(2)}m, Mass=${katamariBody.mass.toFixed(2)}kg`);
+        }
+
+        // New helper function to encapsulate Katamari size updates
+        function updateKatamariVisualsAndPhysics() {
+            const coreBall = katamari.getObjectByName('core');
+            if (coreBall) {
+                // Dispose old geometry before creating a new one
+                if (coreBall.geometry) {
+                    coreBall.geometry.dispose();
+                }
+                coreBall.geometry = new THREE.SphereGeometry(katamariRadius, 32, 32);
+            }
+            // Update Katamari's physics body mass and shape
+            updateKatamariPhysics();
+
+            // Also update Katamari body position to ensure it's on the ground if it shrunk significantly
+            katamariBody.position.y = katamariRadius;
+            katamari.position.y = katamariRadius;
+            console.log(`Katamari visual radius updated to: ${katamariRadius.toFixed(2)}m`);
+        }
+
+        // Function to grow Katamari by accretion
         function growKatamari(itemSize) {
             const growthFactor = 0.05; // How much collecting an item contributes to growth
             katamariRadius += itemSize * growthFactor;
 
-            // Update Three.js visual scale
-            const scaleFactor = katamariRadius / 2; // Initial radius was 2
-            katamari.scale.set(scaleFactor, scaleFactor, scaleFactor);
-
-            // Update Cannon.js physics body radius
-            const katamariSphereShape = katamariBody.shapes[0];
-            if (katamariSphereShape instanceof CANNON.Sphere) {
-                katamariSphereShape.radius = katamariRadius;
-            }
-            // Also update Katamari body position to ensure it's on the ground if it grew
-            // katamariBody.position.y = katamariRadius; // Removed: Let physics handle Y position
-            // katamari.position.y = katamariRadius; // Removed: Let physics handle Y position
-            console.log(`Katamari radius updated to: ${katamariRadius.toFixed(2)}m, scale: ${scaleFactor.toFixed(2)}`);
+            // Update Katamari's visual geometry and physics body
+            updateKatamariVisualsAndPhysics();
         }
 
         // New function to shed items from the Katamari
@@ -1618,21 +1682,13 @@
                 createParticles(worldPosition, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'shed');
 
                 // Shrink Katamari
-                katamariRadius -= shedItemSize * 0.05; // Reverse growth factor
+                katamariRadius -= shedItemSize * 0.05;
                 katamariRadius = Math.max(2, katamariRadius); // Don't shrink below initial size
 
                 // Update UI and Katamari visual/physics size
                 itemsCollectedCount--;
                 itemsCollectedUI.textContent = itemsCollectedCount;
-                // Update Katamari's visual scale and physics body radius
-                const scaleFactor = katamariRadius / 2;
-                katamari.scale.set(scaleFactor, scaleFactor, scaleFactor);
-                const katamariSphereShape = katamariBody.shapes[0];
-                if (katamariSphereShape instanceof CANNON.Sphere) {
-                    katamariSphereShape.radius = katamariRadius;
-                }
-                // katamariBody.position.y = katamariRadius; // Removed: Let physics handle Y position
-                // katamari.position.y = katamariRadius; // Removed: Let physics handle Y position
+                updateKatamariVisualsAndPhysics();
             }
             console.log("Finished shedding items.");
         }
@@ -1670,21 +1726,18 @@
             }
         }
 
-        function attachItem(itemThreeMesh, itemCannonBody) {
+        function attachItem(itemThreeMesh, itemCannonBody, collisionEvent) {
             console.log(`Attaching item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
             // Remove from Cannon.js world
             world.removeBody(itemCannonBody);
             physicsBodies = physicsBodies.filter(body => body !== itemCannonBody);
-            console.log("Item removed from physics world.");
 
             // Remove from Three.js items to collect list
             itemsToCollect = itemsToCollect.filter(item => item !== itemThreeMesh);
-            console.log("Item removed from itemsToCollect array.");
 
             // Increment collected items count and update UI
             itemsCollectedCount++;
             itemsCollectedUI.textContent = itemsCollectedCount;
-            console.log(`Items collected: ${itemsCollectedCount}`);
 
             // Calculate position on Katamari surface
             const itemWorldPosition = new THREE.Vector3();
@@ -1718,7 +1771,6 @@
             growKatamari(itemThreeMesh.userData.size); // Grow Katamari based on item size
             console.log("Katamari growth initiated.");
 
-            // Create particles for collection
             createParticles(itemWorldPosition, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'collect');
         }
 
