@@ -176,13 +176,13 @@
     </div>
     <div id="message-overlay"></div>
 
-    <!-- Three.js Library -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
     <!-- Tone.js Library for Audio Synthesis (Loaded globally) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
     
 
     <script type="module">
+        // Three.js Library (ES Module)
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.module.js';
         // Cannon-ES Library for Physics (Moved to top-level of module script)
         import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js';
 
