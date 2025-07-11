@@ -172,7 +172,7 @@
         let rollingSynth, collectionSynth, shedSound, attractionHum; // Tone.js synthesizers
         const keys = {}, clock = new THREE.Clock();
         // moveSpeed for direct Three.js movement, damping for item physics
-        let moveSpeed = 1.5, damping = 0.1, timeStep = 1 / 60; 
+        let timeStep = 1 / 60; 
         let currentLevel = 1;
         let isGeneratingLevel = false; // Flag to prevent physics updates during level generation
         let smoothedSpeed = 0; // New variable for smoothing camera FOV changes
@@ -183,6 +183,9 @@
         const collectionSoundCooldown = 0.05; // 0.05 seconds cooldown
         let lastShedTime = 0; // New variable to track last shed time
         const shedCooldown = 1000; // 1 second cooldown for shedding items
+
+        const baseSuckRangeFactor = 1.5; // Base suck range factor for Katamari
+        let currentSuckRange = 0; // Declare suckRange at a higher scope
 
         // Dynamic item generation variables
         let lastGenerationPosition = new THREE.Vector3();
@@ -594,7 +597,8 @@
                 position: new CANNON.Vec3(0, katamariRadius, 0),
                 shape: katamariShape,
                 linearDamping: 0.8, // Increased linear damping to absorb unexpected impulses
-                    angularDamping: 0.8 // Increased angular damping to absorb unexpected impulses
+                angularDamping: 0.8, // Increased angular damping to absorb unexpected impulses
+                maxRollingSpeed: 15 // Initial max rolling speed
             });
             katamariBody.addEventListener('collide', handleKatamariCollision);
             world.addBody(katamariBody); // Use world.addBody for cannon-es
@@ -1502,6 +1506,7 @@
                 magnetism: new THREE.TorusGeometry(0.8, 0.3, 16, 100),
                 speedBoost: new THREE.ConeGeometry(0.8, 1.5, 32),
                 stickyCoating: new THREE.DodecahedronGeometry(1),
+                vacuumBoost: new THREE.OctahedronGeometry(1) // Added geometry for vacuumBoost
             };
 
             for (let i = 0; i < count; i++) {
@@ -1577,12 +1582,10 @@
             const maxSuckRangeFactor = 3.0; // Maximum suck factor
             const suckFactorGrowthRate = 0.1; // How quickly suck factor increases with radius
 
-            let currentSuckRangeFactor = minSuckRangeFactor + (katamariRadius * suckFactorGrowthRate);
-            currentSuckRangeFactor = Math.min(maxSuckRangeFactor, currentSuckRangeFactor); // Cap at max
+            let calculatedSuckRangeFactor = minSuckRangeFactor + (katamariRadius * suckFactorGrowthRate);
+            calculatedSuckRangeFactor = Math.min(maxSuckRangeFactor, calculatedSuckRangeFactor); // Cap at max
 
-            const suckRange = katamariRadius * currentSuckRangeFactor;
-
-            updatePowerUps(currentSuckRangeFactor);
+            currentSuckRange = updatePowerUps(calculatedSuckRangeFactor); // Update suck range based on power-ups
             fpsCounter.update();
             requestAnimationFrame(animate);
 
@@ -1638,6 +1641,7 @@
                 if (body.userData && body.userData.threeMesh && body.userData.threeMesh.userData.isAttracting) {
                     const itemThreeMesh = body.userData.threeMesh;
                     const distance = katamari.position.distanceTo(itemThreeMesh.position);
+                    const suckRange = katamariRadius * currentSuckRange; // Use the globally updated suckRange
 
                     if (distance < suckRange) {
                         // Gravitational pull (inverse square law)
@@ -1706,7 +1710,7 @@
                 if (body.userData && body.userData.threeMesh && body.userData.threeMesh.userData.isAttracting) {
                     const itemThreeMesh = body.userData.threeMesh;
                     const distance = katamari.position.distanceTo(itemThreeMesh.position);
-                    if (distance < suckRange) {
+                    if (distance < currentSuckRange) { // Use the globally updated suckRange
                         totalAttractionForce += body.userData.attractionForce.length();
                         attractedItemsCount++;
                     }
@@ -1837,108 +1841,109 @@
 
             const rightDirection = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), cameraDirection).normalize();
 
-            let desiredVelocity = new CANNON.Vec3(0,0,0); // Use a Cannon.js vector for desired velocity
+            let desiredMovementDirection = new CANNON.Vec3(0, 0, 0); // Use a Cannon.js vector for desired movement direction
             let isMovingInput = false; // Track if there's *any* directional input
 
-            // --- Dynamic Speed Calculation ---
-            const baseSpeed = 30; // Reduced base speed
-            const maxSpeed = 80; // Reduced max speed
-            const speedGrowthFactor = 0.3; // Reduced speed growth
-            moveSpeed = baseSpeed + (katamariRadius * speedGrowthFactor);
-            moveSpeed = Math.min(moveSpeed, maxSpeed); // Cap the speed
+            // --- Dynamic Acceleration Calculation ---
+            const baseAcceleration = 10; // Base acceleration for small Katamari
+            const maxAcceleration = 50; // Max acceleration for large Katamari
+            const accelerationGrowthFactor = 0.1; // How quickly acceleration increases with radius
+
+            let currentAcceleration = baseAcceleration + (katamariRadius * accelerationGrowthFactor);
+            currentAcceleration = Math.min(currentAcceleration, maxAcceleration); // Cap the acceleration
+
+            desiredMovementDirection = new CANNON.Vec3(0, 0, 0); // Use a Cannon.js vector for desired movement direction
+            isMovingInput = false; // Track if there's *any* directional input
 
             if (useGyroscope) {
                 // Gyroscope input
-                // Map gamma (front-back tilt) to forward/backward movement
-                // Map beta (left-to-right tilt) to left/right movement
-                // Clamp values to prevent excessive speed/unintended movement
-                const forwardBackwardTilt = THREE.MathUtils.clamp(gyro.gamma / 45, -1, 1); // Normalize to -1 to 1
-                const leftRightTilt = THREE.MathUtils.lerp(0, -1, THREE.MathUtils.clamp(gyro.beta / 45, -1, 1)); // Normalize to -1 to 1
+                const forwardBackwardTilt = THREE.MathUtils.clamp(gyro.gamma / 45, -1, 1);
+                const leftRightTilt = THREE.MathUtils.lerp(0, -1, THREE.MathUtils.clamp(gyro.beta / 45, -1, 1));
 
-                desiredVelocity.x += cameraDirection.x * moveSpeed * forwardBackwardTilt * gyroSensitivity;
-                desiredVelocity.z += cameraDirection.z * moveSpeed * forwardBackwardTilt * gyroSensitivity;
-                desiredVelocity.x -= rightDirection.x * moveSpeed * leftRightTilt * gyroSensitivity;
-                desiredVelocity.z -= rightDirection.z * moveSpeed * leftRightTilt * gyroSensitivity;
+                desiredMovementDirection.x += cameraDirection.x * forwardBackwardTilt * gyroSensitivity;
+                desiredMovementDirection.z += cameraDirection.z * forwardBackwardTilt * gyroSensitivity;
+                desiredMovementDirection.x -= rightDirection.x * leftRightTilt * gyroSensitivity;
+                desiredMovementDirection.z -= rightDirection.z * leftRightTilt * gyroSensitivity;
                 
-                // If there's any significant tilt, consider it moving input
                 if (Math.abs(forwardBackwardTilt) > 0.1 || Math.abs(leftRightTilt) > 0.1) {
                     isMovingInput = true;
                 }
             } else {
-                // Determine desired velocity based on keyboard input
+                // Determine desired movement direction based on keyboard input
                 if (keys['w'] || keys['arrowup']) {
-                    desiredVelocity.x -= cameraDirection.x * moveSpeed;
-                    desiredVelocity.z -= cameraDirection.z * moveSpeed;
+                    desiredMovementDirection.x -= cameraDirection.x;
+                    desiredMovementDirection.z -= cameraDirection.z;
                     isMovingInput = true;
                 }
                 if (keys['s'] || keys['arrowdown']) {
-                    desiredVelocity.x += cameraDirection.x * moveSpeed;
-                    desiredVelocity.z += cameraDirection.z * moveSpeed;
+                    desiredMovementDirection.x += cameraDirection.x;
+                    desiredMovementDirection.z += cameraDirection.z;
                     isMovingInput = true;
                 }
                 if (keys['a'] || keys['arrowleft']) {
-                    desiredVelocity.x -= rightDirection.x * moveSpeed;
-                    desiredVelocity.z -= rightDirection.z * moveSpeed;
+                    desiredMovementDirection.x -= rightDirection.x;
+                    desiredMovementDirection.z -= rightDirection.z;
                     isMovingInput = true;
                 }
                 if (keys['d'] || keys['arrowright']) {
-                    desiredVelocity.x += rightDirection.x * moveSpeed;
-                    desiredVelocity.z += rightDirection.z * moveSpeed;
+                    desiredMovementDirection.x += rightDirection.x;
+                    desiredMovementDirection.z += rightDirection.z;
                     isMovingInput = true;
                 }
 
-                // Determine desired velocity based on touch input
+                // Determine desired movement direction based on touch input
                 if (touchInput.active) {
                     const deltaX = touchInput.currentX - touchInput.startX;
                     const deltaY = touchInput.currentY - touchInput.startY;
 
                     const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                    if (length > touchDeadZone) { // Apply movement only if outside dead zone
+                    if (length > touchDeadZone) {
                         const normalizedDeltaX = deltaX / length;
                         const normalizedDeltaY = deltaY / length;
 
                         // Map touch X to right/left, touch Y to forward/backward relative to camera
-                        desiredVelocity.x += (cameraDirection.x * normalizedDeltaY - rightDirection.x * normalizedDeltaX) * moveSpeed * touchSensitivity;
-                        desiredVelocity.z += (cameraDirection.z * normalizedDeltaY - rightDirection.z * normalizedDeltaX) * moveSpeed * touchSensitivity;
+                        desiredMovementDirection.x += (cameraDirection.x * normalizedDeltaY - rightDirection.x * normalizedDeltaX) * touchSensitivity;
+                        desiredMovementDirection.z += (cameraDirection.z * normalizedDeltaY - rightDirection.z * normalizedDeltaX) * touchSensitivity;
                         isMovingInput = true;
                     }
                 }
             }
 
-            // --- Katamari-style Movement (Force-based) ---
-            const forceMultiplier = 200; // Reduced for slower movement
-            const torqueMultiplier = 100; // Reduced for slower rolling
-
-            let forceVector = new CANNON.Vec3(0, 0, 0);
-            let torqueVector = new CANNON.Vec3(0, 0, 0);
-
+            // Normalize desiredMovementDirection if there's input
             if (isMovingInput) {
-                // Calculate force based on desiredVelocity (which now represents input direction)
-                forceVector.copy(desiredVelocity);
-                forceVector.normalize();
-                forceVector.scale(moveSpeed * forceMultiplier, forceVector);
-
-                // Apply force to the Katamari body
-                katamariBody.applyForce(forceVector, katamariBody.position);
-
-                // Calculate torque for rolling motion
-                // Torque should be perpendicular to the movement direction and the "up" vector
-                const moveDirection = new CANNON.Vec3(desiredVelocity.x, 0, desiredVelocity.z);
-                const upVector = new CANNON.Vec3(0, 1, 0);
-                moveDirection.cross(upVector, torqueVector);
-                torqueVector.normalize();
-                torqueVector.scale(moveSpeed * torqueMultiplier, torqueVector);
-
-                // Apply torque to the Katamari body
-                katamariBody.applyTorque(torqueVector);
+                desiredMovementDirection.normalize();
             }
 
-            // Adjust damping based on whether there's input
+            // --- Torque-based Rolling Physics ---
+            const maxRollingSpeed = 15; // Maximum linear speed for the Katamari
+
             if (isMovingInput) {
-                katamariBody.linearDamping = 0.5; // Less damping when actively moving
+                // Calculate the force to apply at the contact point
+                const forceMagnitude = currentAcceleration * katamariBody.mass; // F = ma
+                const force = new CANNON.Vec3();
+                desiredMovementDirection.scale(forceMagnitude, force);
+
+                // Calculate the contact point (bottom of the Katamari)
+                const contactPoint = new CANNON.Vec3(0, -katamariRadius, 0);
+                katamariBody.quaternion.vmult(contactPoint, contactPoint); // Rotate contact point by Katamari's orientation
+                contactPoint.vadd(katamariBody.position, contactPoint); // Translate to world position
+
+                // Apply force at the contact point
+                katamariBody.applyForce(force, contactPoint);
+
+                // Limit linear velocity to maxRollingSpeed
+                const currentLinearVelocity = katamariBody.velocity.length();
+                if (currentLinearVelocity > katamariBody.maxRollingSpeed) {
+                    katamariBody.velocity.normalize();
+                    katamariBody.velocity.scale(katamariBody.maxRollingSpeed, katamariBody.velocity);
+                }
+
+                // Adjust damping when actively moving
+                katamariBody.linearDamping = 0.5;
                 katamariBody.angularDamping = 0.5;
             } else {
-                katamariBody.linearDamping = 0.9; // More damping when no input, to slow down
+                // Increase damping when no input to slow down
+                katamariBody.linearDamping = 0.9;
                 katamariBody.angularDamping = 0.9;
             }
 
@@ -2104,12 +2109,14 @@
             collectionSynth.triggerAttackRelease("C5", "8n");
         }
 
-        function updatePowerUps(baseSuckRangeFactor) {
+        function updatePowerUps(initialSuckRangeFactor) {
             const now = Date.now();
             let speedBoostActive = false;
             let magnetismActive = false;
-            let vacuumBoostActive = false; // New variable
+            let vacuumBoostActive = false;
             let powerUpStatusHTML = '';
+
+            let effectiveSuckRangeFactor = initialSuckRangeFactor; // Start with the calculated base suck range factor
 
             for (const type in activePowerUps) {
                 const expiryTime = activePowerUps[type];
@@ -2132,8 +2139,9 @@
                     case 'stickyCoating':
                         // This is handled in checkMountainCollisions
                         break;
-                    case 'vacuumBoost': // New case
+                    case 'vacuumBoost':
                         vacuumBoostActive = true;
+                        effectiveSuckRangeFactor *= 2; // Double the suck range factor
                         break;
                 }
             }
@@ -2142,115 +2150,28 @@
 
             // Apply speed boost
             if (speedBoostActive) {
-                moveSpeed = 3;
+                katamariBody.maxRollingSpeed = 30; // Temporarily increase max speed
             } else {
-                moveSpeed = 1.5;
+                katamariBody.maxRollingSpeed = 15; // Reset to default max speed
             }
 
-            // Apply vacuum boost
-            let currentSuckRangeFactor = baseSuckRangeFactor;
-            let currentForceMultiplier = 1;
-            if (vacuumBoostActive) {
-                currentSuckRangeFactor *= 2;
-                currentForceMultiplier *= 2;
-            }
-
-            // Update sucking effect
+            // Update sucking effect visual
             if (suckingEffect) {
                 if (magnetismActive) {
                     suckingEffect.visible = true;
-                    suckingEffect.scale.x = katamariRadius * 0.5 * (vacuumBoostActive ? 1.5 : 1); // Intensify vortex
-                    suckingEffect.scale.y = katamariRadius * 0.5 * (vacuumBoostActive ? 1.5 : 1);
-                    suckingEffect.scale.z = katamariRadius * 0.5 * (vacuumBoostActive ? 1.5 : 1);
+                    // Scale based on the effectiveSuckRangeFactor to match visual with actual suck range
+                    suckingEffect.scale.x = katamariRadius * 0.5 * (effectiveSuckRangeFactor / initialSuckRangeFactor); 
+                    suckingEffect.scale.y = katamariRadius * 0.5 * (effectiveSuckRangeFactor / initialSuckRangeFactor);
+                    suckingEffect.scale.z = katamariRadius * 0.5 * (effectiveSuckRangeFactor / initialSuckRangeFactor);
                     suckingEffect.material.opacity = 0.3 + Math.sin(Date.now() * 0.01) * 0.2;
                 } else {
                     suckingEffect.visible = false;
                 }
             }
-
-            // Update attraction forces to items (using new multipliers)
-            const katamariMass = katamariBody.mass;
-            
-            for (const body of physicsBodies) {
-                if (body.userData && body.userData.threeMesh) { // Check if it's a valid item body
-                    const itemThreeMesh = body.userData.threeMesh;
-                    const distance = katamari.position.distanceTo(itemThreeMesh.position);
-                    const suckRange = katamariRadius * currentSuckRangeFactor; // Recalculate suckRange for each item
-
-                    // Only process attraction if the item is within suck range and not already attached
-                    if (distance < suckRange && itemThreeMesh.userData.attachmentStage !== 2) {
-                        // If not yet attracting, initiate attraction
-                        if (!itemThreeMesh.userData.isAttracting) {
-                            itemThreeMesh.userData.isAttracting = true;
-                            itemThreeMesh.userData.attractionStartTime = Date.now();
-                            body.userData.attractionForce = new CANNON.Vec3();
-                            body.userData.attractionTorque = new CANNON.Vec3();
-                            itemThreeMesh.userData.attachmentStage = 0;
-                            console.log(`Initiating attraction for item: ${itemThreeMesh.userData.size.toFixed(2)}m`);
-                            createParticles(itemThreeMesh.position, itemThreeMesh.isGroup ? itemThreeMesh.children[0].material.color : itemThreeMesh.material.color, 'suck', itemThreeMesh.userData.size, katamari.position);
-                        }
-
-                        // Gravitational pull (inverse square law)
-                        const G = 6.674e-11; // Gravitational constant (placeholder, adjust for game feel)
-                        const itemMass = itemThreeMesh.userData.size * 5; // Assuming item mass scales with size
-                        let forceMagnitude = (katamariMass * itemMass) / (distance * distance);
-
-                        // Apply vacuum boost force multiplier
-                        forceMagnitude *= currentForceMultiplier;
-
-                        // Clamp force to prevent extreme values when very close
-                        forceMagnitude = Math.min(forceMagnitude, 500 * currentForceMultiplier); // Max force to prevent instability
-
-                        const direction = new CANNON.Vec3();
-                        katamariBody.position.vsub(body.position, direction);
-                        direction.normalize();
-
-                        const attractionForce = new CANNON.Vec3();
-                        direction.scale(forceMagnitude, attractionForce);
-                        body.applyForce(attractionForce, body.position);
-
-                        // Apply torque for orbital motion (simplified)
-                        const torqueMagnitude = forceMagnitude * 0.01; // Adjust for desired orbital speed
-                        const torqueAxis = new CANNON.Vec3(0, 1, 0); // Rotate around Y-axis
-                        const attractionTorque = new CANNON.Vec3();
-                        torqueAxis.scale(torqueMagnitude, attractionTorque);
-                        body.applyTorque(attractionTorque);
-
-                        // Apply angular damping to orbiting items
-                        body.angularVelocity.scale(0.95, body.angularVelocity); // Apply 5% damping per frame
-
-                        // Update attachment stage
-                        const attractionDuration = Date.now() - itemThreeMesh.userData.attractionStartTime;
-                        let orbitDuration = 0.5; // Default for small items
-                        if (itemThreeMesh.userData.size > 1) orbitDuration = 1; // Medium items
-                        if (itemThreeMesh.userData.size > 5) orbitDuration = 2; // Large items
-
-                        if (attractionDuration / 1000 > orbitDuration && itemThreeMesh.userData.attachmentStage === 0) {
-                            itemThreeMesh.userData.attachmentStage = 1; // Transition to locking stage
-                            body.sleep(); // Put physics body to sleep
-                            console.log(`Item ${itemThreeMesh.userData.size.toFixed(2)}m transitioned to locking stage.`);
-                        }
-
-                        if (itemThreeMesh.userData.attachmentStage === 1) {
-                            // If close enough, attach
-                            if (distance < katamariRadius + itemThreeMesh.userData.size * 0.5) {
-                                attachItem(itemThreeMesh, body);
-                                itemThreeMesh.userData.attachmentStage = 2; // Merged
-                                itemThreeMesh.userData.isAttracting = false; // Stop attracting
-                                console.log(`Item ${itemThreeMesh.userData.size.toFixed(2)}m merged with Katamari.`);
-                            }
-                        }
-
-                    } else if (itemThreeMesh.userData.isAttracting) { // If item leaves suck range AND was attracting
-                        itemThreeMesh.userData.isAttracting = false;
-                        itemThreeMesh.userData.attachmentStage = 0;
-
-                    }
-                }
-            }
+            // Return the calculated effective suck range factor
+            return effectiveSuckRangeFactor;
         }
 
-        // New collision function for mountains
         function checkMountainCollisions() {
             const currentTime = Date.now(); // Get current time for cooldown check
 
@@ -2282,7 +2203,7 @@
                         // Smaller Katamari means more impact
                         const katamariMass = katamariBody.mass;
                         const mountainImpactFactor = mountainRadius / katamariRadius; // Larger mountain relative to Katamari = more impact
-                        const baseImpulseStrength = moveSpeed * 0.2; // Further reduced base strength for less severe push back
+                        const baseImpulseStrength = 10 * 0.2; // Further reduced base strength for less severe push back
                         const cappedMountainImpactFactor = Math.min(2.0, mountainImpactFactor); // Cap impact factor to prevent extreme impulses
                         const impulseStrength = baseImpulseStrength * Math.max(0.2, cappedMountainImpactFactor); // Scale by mountain size relative to Katamari, with a min
 
