@@ -130,6 +130,27 @@
         #gyro-button.active:hover {
             background-color: #218838;
         }
+        #debug-button {
+            background-color: #6c757d; /* Grey */
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 5px; /* A bit less margin than gyro button */
+            transition: background-color 0.2s ease;
+        }
+        #debug-button:hover {
+            background-color: #5a6268;
+        }
+        #debug-button.active {
+            background-color: #ffc107; /* Yellow/Orange for active debug */
+            color: #333;
+        }
+        #debug-button.active:hover {
+            background-color: #e0a800;
+        }
     </style>
 </head>
 <body>
@@ -145,6 +166,7 @@
         <div>Target Size: <span id="target-size">100.00m</span></div>
         <div id="power-up-status"></div>
         <button id="gyro-button">Toggle Gyro</button>
+        <button id="debug-button">Toggle Debug</button>
     </div>
     <div id="controls-info">
         <p>Use <b>W, A, S, D</b> or <b>Arrow Keys</b> to move the Katamari.</p>
@@ -166,6 +188,9 @@
 
         // Encapsulate the entire game logic within an IIFE to prevent global variable re-declaration errors.
         const gameModule = (function() { // Assign the IIFE's return value to gameModule
+            let isDebugMode = false; // New: Debug mode flag
+            const debugLog = (...args) => { if (isDebugMode) console.log(...args); }; // New: Custom debug log function
+
             // --- SCENE/PHYSICS SETUP ---
             let scene, camera, renderer, world;
             let katamari, ground, groundBody, suckingEffect;
@@ -273,6 +298,7 @@
             const messageOverlay = document.getElementById('message-overlay');
             const loadingOverlay = document.getElementById('loading-overlay');
             const gyroButton = document.getElementById('gyro-button');
+            const debugButton = document.getElementById('debug-button'); // New: Debug button element
 
             // --- Instanced Mesh Variables ---
             // Store geometries and materials for instanced meshes
@@ -304,13 +330,13 @@
                 fpsCounter.init();
 
                 // Debugging: Check Tone object
-                console.log("Tone object after script load:", Tone);
-                console.log("Type of Tone.NoiseSynth:", typeof Tone.NoiseSynth);
-                console.log("Type of Tone.Synth:", typeof Tone.Synth);
-                console.log("Type of Tone.MembraneSynth:", typeof Tone.MembraneSynth);
+                debugLog("Tone object after script load:", Tone);
+                debugLog("Type of Tone.NoiseSynth:", typeof Tone.NoiseSynth);
+                debugLog("Type of Tone.Synth:", typeof Tone.Synth);
+                debugLog("Type of Tone.MembraneSynth:", typeof Tone.MembraneSynth);
                 // Debugging: Check CANNON object
-                console.log("CANNON object after module import:", CANNON);
-                console.log("Type of CANNON.World:", typeof CANNON.World);
+                debugLog("CANNON object after module import:", CANNON);
+                debugLog("Type of CANNON.World:", typeof CANNON.World);
 
 
                 scene = new THREE.Scene();
@@ -397,15 +423,18 @@
                 // Gyroscope button listener
                 gyroButton.addEventListener('click', toggleGyroscope);
 
+                // New: Debug button listener
+                debugButton.addEventListener('click', toggleDebugMode);
+
                 // Set up gyroscope button visibility
                 setupGyroButtonVisibility();
 
                 window.addEventListener('resize', onWindowResize);
                 messageOverlay.addEventListener('click', generateNewLevel); // Click to restart/next level
 
-                console.log("Calling generateNewLevel from init...");
+                debugLog("Calling generateNewLevel from init...");
                 await generateNewLevel(); // Initial level generation
-                console.log("generateNewLevel completed. Starting animation loop.");
+                debugLog("generateNewLevel completed. Starting animation loop.");
                 animate(); // Start the game loop
             }
 
@@ -499,10 +528,24 @@
                 }
             }
 
+            // New: Toggle Debug Mode
+            function toggleDebugMode() {
+                isDebugMode = !isDebugMode;
+                if (isDebugMode) {
+                    debugButton.classList.add('active');
+                    debugButton.textContent = 'Debug ON';
+                    debugLog("Debug mode ON");
+                } else {
+                    debugButton.classList.remove('active');
+                    debugButton.textContent = 'Toggle Debug';
+                    debugLog("Debug mode OFF"); // This will still log as it's called before the mode is fully off
+                }
+            }
+
 
             // --- LEVEL THEMING ---
             async function generateLevelTheme() {
-                console.log("Starting generateLevelTheme...");
+                debugLog("Starting generateLevelTheme...");
                 loadingOverlay.style.display = 'flex';
                 const themes = [
                     {
@@ -531,19 +574,19 @@
                 loadingOverlay.textContent = `Generating ${theme.themeName}... ✨`; // Update loading text
                 await new Promise(r => setTimeout(r, 1500)); // Simulate loading time
                 loadingOverlay.style.display = 'none';
-                console.log("Finished generateLevelTheme. Selected theme:", theme.themeName);
+                debugLog("Finished generateLevelTheme. Selected theme:", theme.themeName);
                 return theme;
             }
 
             // --- LEVEL CREATION ---
             async function generateNewLevel() {
-                console.log("Starting generateNewLevel...");
+                debugLog("Starting generateNewLevel...");
                 isGeneratingLevel = true; // Set flag at the start of level generation
                 stopRollingSound();
                 messageOverlay.style.display = 'none'; // Hide win message
 
                 // Clean up previous level's objects
-                console.log("Cleaning up previous level objects...");
+                debugLog("Cleaning up previous level objects...");
                 if (katamari) scene.remove(katamari);
                 if (ground) scene.remove(ground);
                 
@@ -581,7 +624,7 @@
                 physicsBodies.forEach(body => world.removeBody(body)); // Use world.removeBody for cannon-es
                 
                 // Re-initialize Cannon.js world for items
-                console.log("Re-initializing physics world...");
+                debugLog("Re-initializing physics world...");
                 world = new CANNON.World();
                 world.gravity.set(0, -20, 0); // Increased gravity for faster falling
                 world.broadphase = new CANNON.SAPBroadphase(world);
@@ -607,10 +650,10 @@
                 scene.background = new THREE.Color(currentTheme.skyColor);
                 scene.fog = new THREE.Fog(currentTheme.skyColor, 50, 200);
                 createEnvironment(currentTheme);
-                console.log("Environment created.");
+                debugLog("Environment created.");
 
                 // Ground (still has a Cannon.js body to interact with items)
-                console.log("Creating ground...");
+                debugLog("Creating ground...");
                 const groundColor1 = new THREE.Color(currentTheme.groundColor);
                 const groundColor2 = groundColor1.clone().lerp(new THREE.Color(0x000000), 0.1); // Slightly darker variant
                 const groundTexture = generateGroundTexture(groundColor1, groundColor2);
@@ -625,10 +668,10 @@
                 groundBody.addShape(new CANNON.Plane());
                 groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
                 world.addBody(groundBody); // Use world.addBody for cannon-es
-                console.log("Ground created and added to physics world.");
+                debugLog("Ground created and added to physics world.");
 
                 // Katamari (now purely a Three.js object for movement)
-                console.log("Creating Katamari...");
+                debugLog("Creating Katamari...");
                 katamariRadius = 2; // Reset radius for new level
                 katamari = new THREE.Group();
                 const katGeo = new THREE.SphereGeometry(katamariRadius, 32, 32);
@@ -660,26 +703,26 @@
                 katamariBody.addEventListener('collide', handleKatamariCollision);
                 world.addBody(katamariBody); // Use world.addBody for cannon-es
                 updateKatamariPhysics(); // Initial physics update for Katamari
-                console.log("Katamari created and added to physics world.");
+                debugLog("Katamari created and added to physics world.");
 
                 lastGenerationPosition.copy(katamari.position); // Initialize generation position
-                console.log("Creating initial collectible items...");
+                debugLog("Creating initial collectible items...");
                 createCollectibleItems(200, currentTheme.items, new THREE.Vector3(0,0,0), 180); // Initial generation around origin (reduced count)
                 createPowerUpItems(5); // Create 5 power-ups
-                console.log("Initial collectible items created.");
+                debugLog("Initial collectible items created.");
                 isGeneratingLevel = false; // Clear flag after level generation is complete
-                console.log("generateNewLevel finished.");
+                debugLog("generateNewLevel finished.");
             }
 
             function createEnvironment(theme) {
-                console.log("createEnvironment: Removing old environment objects...");
+                debugLog("createEnvironment: Removing old environment objects...");
                 // Remove old environment objects
                 scene.children.filter(obj => obj.userData.isEnvironment).forEach(obj => scene.remove(obj));
                 mountains = []; // Ensure mountains array is cleared
-                console.log("createEnvironment: Old environment objects removed.");
+                debugLog("createEnvironment: Old environment objects removed.");
 
                 // Clouds
-                console.log("createEnvironment: Creating clouds...");
+                debugLog("createEnvironment: Creating clouds...");
                 const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, roughness: 1 });
                 for (let i = 0; i < 15; i++) {
                     const cloudGeo = new THREE.SphereGeometry(Math.random() * 8 + 5, 16, 16);
@@ -688,10 +731,10 @@
                     cloud.userData.isEnvironment = true;
                     scene.add(cloud);
                 }
-                console.log("createEnvironment: Clouds created.");
+                debugLog("createEnvironment: Clouds created.");
 
                 // Mountains (or other distant scenery based on theme)
-                console.log("createEnvironment: Creating mountains...");
+                debugLog("createEnvironment: Creating mountains...");
                 const mountainColor = new THREE.Color(theme.groundColor).lerp(new THREE.Color(0x000000), 0.2);
                 const mountainMat = new THREE.MeshStandardMaterial({ color: mountainColor, roughness: 0.8 });
                 const safeZoneRadius = 50; // Define a radius around the origin where mountains shouldn't spawn
@@ -720,7 +763,7 @@
                     scene.add(mountain);
                     mountains.push(mountain); // Add to new mountains array
                 }
-                console.log("createEnvironment: Mountains created.");
+                debugLog("createEnvironment: Mountains created.");
             }
 
             function generateKatamariTexture() {
@@ -795,7 +838,7 @@
 
             // Modified createCollectibleItems to spawn around a center position
             function createCollectibleItems(count, itemNames, centerPosition = new THREE.Vector3(0,0,0), spawnRadius = 100) {
-                console.log(`createCollectibleItems: Attempting to create ${count} items.`);
+                debugLog(`createCollectibleItems: Attempting to create ${count} items.`);
                 if (!itemNames || itemNames.length === 0) {
                     console.warn("createCollectibleItems: itemNames array is empty or undefined. Cannot create items.");
                     return;
@@ -866,7 +909,7 @@
 
                 for (let i = 0; i < count; i++) {
                     const itemName = itemNames[Math.floor(Math.random() * itemNames.length)];
-                    console.log(`Attempting to create item: ${itemName}`); 
+                    debugLog(`Attempting to create item: ${itemName}`); 
                     
                     let threeMesh; // This will either be a regular Mesh or an InstancedMesh instance
                     let cannonShape;
@@ -1387,8 +1430,8 @@
                         }
                     }
 
-                    console.log(`After switch - threeMesh:`, threeMesh);
-                    console.log(`After switch - cannonShape:`, cannonShape);
+                    debugLog(`After switch - threeMesh:`, threeMesh);
+                    debugLog(`After switch - cannonShape:`, cannonShape);
 
                     // Defensive check: Ensure threeMesh and its userData.size are defined after the switch
                     if (!threeMesh || threeMesh.userData === undefined || threeMesh.userData.size === undefined) {
@@ -1467,11 +1510,11 @@
                     world.addBody(itemBody); // Use world.addBody for cannon-es
                     physicsBodies.push(itemBody);
                 }
-                console.log(`createCollectibleItems: Finished creating ${count} items.`);
+                debugLog(`createCollectibleItems: Finished creating ${count} items.`);
             }
 
             function createPowerUpItems(count) {
-                console.log(`Creating ${count} power-up items.`);
+                debugLog(`Creating ${count} power-up items.`);
                 const powerUpColors = {
                     magnetism: 0xFFD700, // Gold
                     speedBoost: 0x00BFFF, // Deep Sky Blue
@@ -1531,7 +1574,7 @@
             }
 
             function resetKatamariPosition() {
-                console.log("Resetting Katamari position...");
+                debugLog("Resetting Katamari position...");
                 if (katamariBody) {
                     katamariBody.position.set(0, katamariRadius, 0);
                     katamariBody.velocity.set(0,0,0);
@@ -1539,14 +1582,14 @@
                     katamari.position.copy(katamariBody.position);
                     katamari.quaternion.copy(katamariBody.quaternion);
                     lastGenerationPosition.copy(katamari.position); // Reset generation position on reset
-                    console.log("Katamari position reset to (0,0,0).");
+                    debugLog("Katamari position reset to (0,0,0).");
                 } else {
                     console.warn("resetKatamariPosition: katamariBody is not defined.");
                 }
             }
 
             function onWindowResize() {
-                console.log("Window resized. Updating camera and renderer size.");
+                debugLog("Window resized. Updating camera and renderer size.");
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
