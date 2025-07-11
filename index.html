@@ -491,13 +491,10 @@
 
             // Function to determine if on a mobile device and show/hide gyro button
             function setupGyroButtonVisibility() {
-                // Check for touch capability OR DeviceOrientationEvent support
-                if (window.matchMedia("(pointer: coarse)").matches || (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')) {
+                // Check for touch capability (indicates mobile) AND DeviceOrientationEvent support
+                if (window.matchMedia("(pointer: coarse)").matches && window.DeviceOrientationEvent) {
                     gyroButton.style.display = 'block';
-                } else if (window.DeviceOrientationEvent) { // For non-iOS devices that support DeviceOrientationEvent without permission
-                    gyroButton.style.display = 'block';
-                }
-                else {
+                } else {
                     gyroButton.style.display = 'none';
                 }
             }
