@@ -43,6 +43,7 @@
             align-items: center;
             font-size: 2.5em;
             z-index: 100;
+            text-align: center; /* Ensure text is centered within the flex item */
             text-shadow: 0 0 15px rgba(255,255,255,0.8);
             animation: pulse 2s infinite alternate;
         }
@@ -147,7 +148,8 @@
     </div>
     <div id="controls-info">
         <p>Use <b>W, A, S, D</b> or <b>Arrow Keys</b> to move the Katamari.</p>
-        <p><b>Swipe</b> on screen to move on mobile.</p>
+        <p><b>Swipe</b> on screen for precise mobile control.</p>
+        <p><b>Toggle Gyro</b> for tilt-based movement on supported devices.</p>
         <p>Press <b>R</b> to reset Katamari position. Press <b>Space</b> to generate a new world.</p>
     </div>
     <div id="message-overlay"></div>
@@ -221,8 +223,8 @@
             active: false
         };
         // Make touch deadzone screen-size relative
-        const touchDeadZone = Math.min(50, window.innerWidth * 0.1); 
-        const touchSensitivity = 0.7; // Adjust this value to change touch responsiveness
+        const touchDeadZone = Math.min(30, window.innerWidth * 0.05); // Smaller deadzone for more responsiveness
+        const touchSensitivity = 1.0; // Increased sensitivity for more direct control
 
         // --- FPS Counter ---
         const fpsCounter = {
@@ -417,6 +419,9 @@
             // alpha: 0 to 360 (compass direction) - not used for movement
             gyro.gamma = event.gamma;
             gyro.beta = event.beta;
+            // Normalize beta and gamma to -1 to 1 range for easier use
+            gyro.normalizedGamma = THREE.MathUtils.clamp(event.gamma / 90, -1, 1);
+            gyro.normalizedBeta = THREE.MathUtils.clamp(event.beta / 90, -1, 1);
         }
 
         function toggleGyroscope() {
@@ -1867,15 +1872,18 @@
 
             if (useGyroscope) {
                 // Gyroscope input
-                const forwardBackwardTilt = -THREE.MathUtils.clamp(gyro.gamma / 45, -1, 1);
-                const leftRightTilt = -THREE.MathUtils.lerp(0, -1, THREE.MathUtils.clamp(gyro.beta / 45, -1, 1));
+                // Use normalized gyro values
+                const forwardBackwardTilt = -gyro.normalizedGamma;
+                const leftRightTilt = -gyro.normalizedBeta;
 
+                // Apply movement based on tilt, scaled by gyroSensitivity
                 desiredMovementDirection.x += cameraDirection.x * forwardBackwardTilt * gyroSensitivity;
                 desiredMovementDirection.z += cameraDirection.z * forwardBackwardTilt * gyroSensitivity;
                 desiredMovementDirection.x -= rightDirection.x * leftRightTilt * gyroSensitivity;
                 desiredMovementDirection.z -= rightDirection.z * leftRightTilt * gyroSensitivity;
                 
-                if (Math.abs(forwardBackwardTilt) > 0.1 || Math.abs(leftRightTilt) > 0.1) {
+                // Consider input active if there's significant tilt
+                if (Math.abs(forwardBackwardTilt) > 0.05 || Math.abs(leftRightTilt) > 0.05) { // Reduced threshold for responsiveness
                     isMovingInput = true;
                 }
             } else {
