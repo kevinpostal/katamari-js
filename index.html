@@ -598,7 +598,7 @@
                 shape: katamariShape,
                 linearDamping: 0.8, // Increased linear damping to absorb unexpected impulses
                 angularDamping: 0.8, // Increased angular damping to absorb unexpected impulses
-                maxRollingSpeed: 15 // Initial max rolling speed
+                
             });
             katamariBody.addEventListener('collide', handleKatamariCollision);
             world.addBody(katamariBody); // Use world.addBody for cannon-es
@@ -1729,20 +1729,30 @@
                 attractionHum.volume.value = -40; // Quiet when no items are attracted
             }
 
+            // Sync visual position BEFORE physics step
+            katamari.position.copy(katamariBody.position);
+            katamari.quaternion.copy(katamariBody.quaternion);
+            
             // Update physics world
             try {
                 world.step(timeStep, deltaTime);
             } catch (e) {
                 console.error("Error during world.step:", e);
-                // Continue rendering even if physics step fails for items
                 renderer.render(scene, camera);
                 return;
             }
 
-            // Sync Three.js Katamari with physics body *after* the physics step
-            // This ensures the visual representation reflects the latest physics state.
-            katamari.position.copy(katamariBody.position);
-            katamari.quaternion.copy(katamariBody.quaternion);
+            // NEW: Clamp angular velocity to prevent runaway spinning
+            const maxAngularSpeed = 5; // Radians per second (adjust as needed)
+            const currentAngularSpeed = katamariBody.angularVelocity.length();
+            if (currentAngularSpeed > maxAngularSpeed) {
+                katamariBody.angularVelocity.scale(maxAngularSpeed / currentAngularSpeed, katamariBody.angularVelocity);
+            }
+
+            // NEW: Increase angular damping
+            katamariBody.angularDamping = 0.99; // Increased from 0.95
+
+            
 
             
 
@@ -1845,8 +1855,8 @@
             let isMovingInput = false; // Track if there's *any* directional input
 
             // --- Dynamic Acceleration Calculation ---
-            const baseAcceleration = 10; // Base acceleration for small Katamari
-            const maxAcceleration = 50; // Max acceleration for large Katamari
+            const baseAcceleration = 20; // Base acceleration for small Katamari
+            const maxAcceleration = 70; // Max acceleration for large Katamari
             const accelerationGrowthFactor = 0.1; // How quickly acceleration increases with radius
 
             let currentAcceleration = baseAcceleration + (katamariRadius * accelerationGrowthFactor);
@@ -1915,8 +1925,6 @@
             }
 
             // --- Torque-based Rolling Physics ---
-            const maxRollingSpeed = 15; // Maximum linear speed for the Katamari
-
             if (isMovingInput) {
                 // Calculate the force to apply at the contact point
                 const forceMagnitude = currentAcceleration * katamariBody.mass; // F = ma
@@ -1939,8 +1947,8 @@
                 }
 
                 // Adjust damping when actively moving
-                katamariBody.linearDamping = 0.5;
-                katamariBody.angularDamping = 0.5;
+                katamariBody.linearDamping = 0.3;
+                katamariBody.angularDamping = 0.95;
             } else {
                 // Increase damping when no input to slow down
                 katamariBody.linearDamping = 0.9;
@@ -2283,6 +2291,10 @@
             // Update mass properties: mass = k * radius^3. Here k = 100 / (2^3) = 12.5
             // So, mass = 12.5 * radius^3
             katamariBody.mass = 12.5 * Math.pow(katamariRadius, 3);
+
+            // Ensure minimum height
+            katamariBody.position.y = Math.max(katamariRadius, katamariBody.position.y);
+            katamari.position.y = katamariBody.position.y;
             katamariBody.updateMassProperties(); // Recalculate inertia and other properties
 
             // Crucial: Update the physics body's Y position to match the new radius
@@ -2460,6 +2472,20 @@
             // Update Katamari size and count
             const itemVolume = Math.pow(itemThreeMesh.userData.size, 3);
             const newVolume = Math.pow(katamariRadius, 3) + itemVolume * 0.1; // Add a fraction of the item's volume
+            
+            // GROW KATAMARI - REPLACE THIS:
+            const oldRadius = katamariRadius;
+            katamariRadius = Math.cbrt(Math.pow(oldRadius, 3) + Math.pow(itemThreeMesh.userData.size, 3));
+            
+            // Adjust position to prevent ground penetration
+            const positionAdjustment = katamariRadius - oldRadius;
+            katamariBody.position.y += positionAdjustment;
+            
+            updateKatamariPhysics();
+            
+            // Ensure we don't go below ground
+            katamariBody.position.y = Math.max(katamariRadius, katamariBody.position.y);
+            
             targetRadius = Math.cbrt(newVolume);
 
             // --- New logic for item attachment ---
