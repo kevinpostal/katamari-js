@@ -596,8 +596,8 @@
                 mass: 100, // High mass so it doesn't move easily by collisions
                 position: new CANNON.Vec3(0, katamariRadius, 0),
                 shape: katamariShape,
-                linearDamping: 0.8, // Increased linear damping to absorb unexpected impulses
-                angularDamping: 0.8, // Increased angular damping to absorb unexpected impulses
+                linearDamping: 0.05, // Reduced linear damping for more natural momentum
+                angularDamping: 0.05, // Reduced angular damping for more natural momentum
                 
             });
             katamariBody.addEventListener('collide', handleKatamariCollision);
@@ -1855,8 +1855,8 @@
             let isMovingInput = false; // Track if there's *any* directional input
 
             // --- Dynamic Acceleration Calculation ---
-            const baseAcceleration = 20; // Base acceleration for small Katamari
-            const maxAcceleration = 70; // Max acceleration for large Katamari
+            const baseAcceleration = 30; // Base acceleration for small Katamari
+            const maxAcceleration = 100; // Max acceleration for large Katamari
             const accelerationGrowthFactor = 0.1; // How quickly acceleration increases with radius
 
             let currentAcceleration = baseAcceleration + (katamariRadius * accelerationGrowthFactor);
@@ -1867,8 +1867,8 @@
 
             if (useGyroscope) {
                 // Gyroscope input
-                const forwardBackwardTilt = THREE.MathUtils.clamp(gyro.gamma / 45, -1, 1);
-                const leftRightTilt = THREE.MathUtils.lerp(0, -1, THREE.MathUtils.clamp(gyro.beta / 45, -1, 1));
+                const forwardBackwardTilt = -THREE.MathUtils.clamp(gyro.gamma / 45, -1, 1);
+                const leftRightTilt = -THREE.MathUtils.lerp(0, -1, THREE.MathUtils.clamp(gyro.beta / 45, -1, 1));
 
                 desiredMovementDirection.x += cameraDirection.x * forwardBackwardTilt * gyroSensitivity;
                 desiredMovementDirection.z += cameraDirection.z * forwardBackwardTilt * gyroSensitivity;
@@ -1880,24 +1880,25 @@
                 }
             } else {
                 // Determine desired movement direction based on keyboard input
+                let forward = 0;
+                let sideways = 0;
+
                 if (keys['w'] || keys['arrowup']) {
-                    desiredMovementDirection.x -= cameraDirection.x;
-                    desiredMovementDirection.z -= cameraDirection.z;
-                    isMovingInput = true;
+                    forward = -1;
                 }
                 if (keys['s'] || keys['arrowdown']) {
-                    desiredMovementDirection.x += cameraDirection.x;
-                    desiredMovementDirection.z += cameraDirection.z;
-                    isMovingInput = true;
+                    forward = 1;
                 }
                 if (keys['a'] || keys['arrowleft']) {
-                    desiredMovementDirection.x -= rightDirection.x;
-                    desiredMovementDirection.z -= rightDirection.z;
-                    isMovingInput = true;
+                    sideways = -1;
                 }
                 if (keys['d'] || keys['arrowright']) {
-                    desiredMovementDirection.x += rightDirection.x;
-                    desiredMovementDirection.z += rightDirection.z;
+                    sideways = 1;
+                }
+
+                if (forward !== 0 || sideways !== 0) {
+                    desiredMovementDirection.x = cameraDirection.x * forward + rightDirection.x * sideways;
+                    desiredMovementDirection.z = cameraDirection.z * forward + rightDirection.z * sideways;
                     isMovingInput = true;
                 }
 
@@ -1912,8 +1913,8 @@
                         const normalizedDeltaY = deltaY / length;
 
                         // Map touch X to right/left, touch Y to forward/backward relative to camera
-                        desiredMovementDirection.x += (cameraDirection.x * normalizedDeltaY - rightDirection.x * normalizedDeltaX) * touchSensitivity;
-                        desiredMovementDirection.z += (cameraDirection.z * normalizedDeltaY - rightDirection.z * normalizedDeltaX) * touchSensitivity;
+                        desiredMovementDirection.x += (-cameraDirection.x * normalizedDeltaY + rightDirection.x * normalizedDeltaX) * touchSensitivity;
+                        desiredMovementDirection.z += (-cameraDirection.z * normalizedDeltaY + rightDirection.z * normalizedDeltaX) * touchSensitivity;
                         isMovingInput = true;
                     }
                 }
@@ -1921,38 +1922,33 @@
 
             // Normalize desiredMovementDirection if there's input
             if (isMovingInput) {
+                const initialMagnitude = desiredMovementDirection.length(); // Get magnitude before normalization
                 desiredMovementDirection.normalize();
-            }
 
-            // --- Torque-based Rolling Physics ---
-            if (isMovingInput) {
-                // Calculate the force to apply at the contact point
-                const forceMagnitude = currentAcceleration * katamariBody.mass; // F = ma
-                const force = new CANNON.Vec3();
-                desiredMovementDirection.scale(forceMagnitude, force);
+                // Calculate the torque to apply for rolling
+                // Torque = Force * Radius (simplified for a sphere rolling on a plane)
+                // We want to apply torque that causes rotation in the direction of movement
+                const torqueMagnitude = currentAcceleration * katamariBody.mass * katamariRadius * 0.5; // Adjust multiplier for desired responsiveness
 
-                // Calculate the contact point (bottom of the Katamari)
-                const contactPoint = new CANNON.Vec3(0, -katamariRadius, 0);
-                katamariBody.quaternion.vmult(contactPoint, contactPoint); // Rotate contact point by Katamari's orientation
-                contactPoint.vadd(katamariBody.position, contactPoint); // Translate to world position
+                // The axis of rotation should be perpendicular to the desired movement direction and the 'up' vector
+                const rotationAxis = new CANNON.Vec3();
+                const upVector = new CANNON.Vec3(0, 1, 0); // Y-axis is up
+                desiredMovementDirection.cross(upVector, rotationAxis); // Cross product gives perpendicular vector
+                rotationAxis.normalize();
 
-                // Apply force at the contact point
-                katamariBody.applyForce(force, contactPoint);
+                const torque = new CANNON.Vec3();
+                rotationAxis.scale(torqueMagnitude, torque);
 
-                // Limit linear velocity to maxRollingSpeed
-                const currentLinearVelocity = katamariBody.velocity.length();
-                if (currentLinearVelocity > katamariBody.maxRollingSpeed) {
-                    katamariBody.velocity.normalize();
-                    katamariBody.velocity.scale(katamariBody.maxRollingSpeed, katamariBody.velocity);
-                }
+                // Apply torque to the Katamari body
+                katamariBody.applyTorque(torque);
 
                 // Adjust damping when actively moving
-                katamariBody.linearDamping = 0.3;
-                katamariBody.angularDamping = 0.95;
+                katamariBody.linearDamping = 0.05;
+                katamariBody.angularDamping = 0.05;
             } else {
                 // Increase damping when no input to slow down
                 katamariBody.linearDamping = 0.9;
-                katamariBody.angularDamping = 0.9;
+                katamariBody.angularDamping = 0.9; // Adjusted to be consistent with linear damping
             }
 
 
@@ -2158,9 +2154,9 @@
 
             // Apply speed boost
             if (speedBoostActive) {
-                katamariBody.maxRollingSpeed = 30; // Temporarily increase max speed
+                
             } else {
-                katamariBody.maxRollingSpeed = 15; // Reset to default max speed
+                
             }
 
             // Update sucking effect visual
