@@ -1855,8 +1855,8 @@
             let isMovingInput = false; // Track if there's *any* directional input
 
             // --- Dynamic Acceleration Calculation ---
-            const baseAcceleration = 30; // Base acceleration for small Katamari
-            const maxAcceleration = 100; // Max acceleration for large Katamari
+            const baseAcceleration = 60; // Base acceleration for small Katamari
+            const maxAcceleration = 200; // Max acceleration for large Katamari
             const accelerationGrowthFactor = 0.1; // How quickly acceleration increases with radius
 
             let currentAcceleration = baseAcceleration + (katamariRadius * accelerationGrowthFactor);
