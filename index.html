@@ -541,12 +541,32 @@
                                     debugInfo("Gyroscope controls ON (permission granted)");
                                 } else {
                                     debugWarn("Permission for device orientation denied.");
-                                    alert("Permission for gyroscope was denied. Please allow motion and orientation access in your device settings for gyroscope controls.");
+                                    // Use a custom message box instead of alert
+                                    const customAlert = document.createElement('div');
+                                    customAlert.textContent = "Permission for gyroscope was denied. Please allow motion and orientation access in your device settings for gyroscope controls.";
+                                    customAlert.style.cssText = `
+                                        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                                        background-color: rgba(0, 0, 0, 0.9); color: white; padding: 20px;
+                                        border-radius: 10px; z-index: 1000; text-align: center;
+                                        box-shadow: 0 0 15px rgba(255,255,255,0.5);
+                                    `;
+                                    document.body.appendChild(customAlert);
+                                    setTimeout(() => document.body.removeChild(customAlert), 3000); // Remove after 3 seconds
                                 }
                             })
                             .catch(error => {
                                 debugError("Error requesting device orientation permission:", error);
-                                alert("Could not enable gyroscope. Ensure your device supports it and allows motion and orientation access.");
+                                // Use a custom message box instead of alert
+                                const customAlert = document.createElement('div');
+                                customAlert.textContent = "Could not enable gyroscope. Ensure your device supports it and allows motion and orientation access.";
+                                customAlert.style.cssText = `
+                                    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                                    background-color: rgba(0, 0, 0, 0.9); color: white; padding: 20px;
+                                    border-radius: 10px; z-index: 1000; text-align: center;
+                                    box-shadow: 0 0 15px rgba(255,255,255,0.5);
+                                `;
+                                document.body.appendChild(customAlert);
+                                setTimeout(() => document.body.removeChild(customAlert), 3000); // Remove after 3 seconds
                             });
                     } else {
                         // For non-iOS 13+ devices, just add the listener
@@ -2097,10 +2117,11 @@
 
 
             // --- Smooth Growth Animation ---
+            // This block now handles the "settling" or "pop" animation after immediate growth
             if (katamariRadius < targetRadius) {
                 katamariRadius = THREE.MathUtils.lerp(katamariRadius, targetRadius, 0.05); // Adjust the interpolation factor for faster/slower growth
                 updateKatamariPhysics();
-                updateKatamariVisualsAndPhysics();
+                updateKatamariVisualsAndPhysics(); // Ensure visual update happens during lerp
             }
 
             // Smooth out the speed for camera FOV (use actual physics velocity)
@@ -2493,26 +2514,7 @@
             debugInfo(`Katamari visual radius updated to: ${katamariRadius.toFixed(2)}m`);
         }
 
-        // Function to grow Katamari by accretion
-        function growKatamari(itemSize) {
-            // Calculate growth based on non-linear scaling
-            const growthAmount = getGrowthContribution(itemSize, katamariRadius);
-            katamariRadius += growthAmount;
-            updateKatamariPhysics();
-
-            // Update Katamari's visual geometry and physics body
-            updateKatamariVisualsAndPhysics();
-        }
-
-        // New function for non-linear growth calculation
-        function getGrowthContribution(itemSize, katamariRadius) {
-            const baseGrowth = 0.01; // Reduced base growth factor
-            const growthRatio = itemSize / katamariRadius;
-            const growthAmount = baseGrowth * Math.pow(growthRatio, 0.5) * Math.log(katamariRadius + 1);
-            return growthAmount;
-        }
-
-        // New function to shed items from the Katamari
+        // Function to shed items from the Katamari
         function shedItems(numToShed) {
             debugInfo(`Attempting to shed ${numToShed} items.`);
             const attachedItems = katamari.children.filter(child => child.name !== 'core');
@@ -2681,18 +2683,22 @@
             const volumeContributionFactor = 0.3; // Increased from 0.1
             const oldRadius = katamariRadius;
             const newVolume = Math.pow(oldRadius, 3) + Math.pow(itemThreeMesh.userData.size, 3) * volumeContributionFactor;
-            katamariRadius = Math.cbrt(newVolume);
+            katamariRadius = Math.cbrt(newVolume); // PRIMARY SIZE UPDATE
             
             // Adjust position to prevent ground penetration
             const positionAdjustment = katamariRadius - oldRadius;
             katamariBody.position.y += positionAdjustment;
             
-            updateKatamariPhysics();
+            updateKatamariPhysics(); // Updates physics body with new katamariRadius
             
             // Ensure we don't go below ground
             katamariBody.position.y = Math.max(katamariRadius, katamariBody.position.y);
             
-            targetRadius = Math.cbrt(newVolume);
+            // *** IMPORTANT FIX: Call visual update immediately after radius change ***
+            updateKatamariVisualsAndPhysics(); // Ensure visual update happens
+
+            // Set targetRadius slightly higher than katamariRadius to trigger the lerp for a subtle "pop" effect.
+            targetRadius = katamariRadius * 1.01; 
 
             // --- New logic for item attachment ---
             // Get the item's world position before it becomes a child
