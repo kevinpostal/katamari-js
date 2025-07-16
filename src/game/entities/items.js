@@ -55,7 +55,7 @@ export function initializeItemsSystem() {
  * Create collectible items around a center position
  */
 export function createCollectibleItems(count, itemNames, centerPosition = new THREE.Vector3(0, 0, 0), spawnRadius = 100) {
-    debugInfo(`createCollectibleItems: Attempting to create ${count} items.`);
+    debugInfo(`createCollectibleItems: Attempting to create ${count} items from ${itemNames.length} types: [${itemNames.join(', ')}]`);
     if (!itemNames || itemNames.length === 0) {
         debugWarn("createCollectibleItems: itemNames array is empty or undefined. Cannot create items.");
         return;
@@ -69,9 +69,17 @@ export function createCollectibleItems(count, itemNames, centerPosition = new TH
 
     const dummy = new THREE.Object3D(); // For setting instance matrix
 
+    // Track item type distribution for debugging
+    const itemTypeCount = {};
+
     for (let i = 0; i < count; i++) {
-        const itemName = itemNames[Math.floor(Math.random() * itemNames.length)];
-        debugInfo(`Attempting to create item: ${itemName}`);
+        const randomIndex = Math.floor(Math.random() * itemNames.length);
+        const itemName = itemNames[randomIndex];
+
+        // Track item distribution
+        itemTypeCount[itemName] = (itemTypeCount[itemName] || 0) + 1;
+
+        debugInfo(`Attempting to create item ${i + 1}/${count}: ${itemName} (index ${randomIndex}/${itemNames.length - 1})`);
 
         let threeMesh;
         let cannonShape;
@@ -99,6 +107,12 @@ export function createCollectibleItems(count, itemNames, centerPosition = new TH
             threeMesh = result.threeMesh;
             cannonShape = result.cannonShape;
             size = result.size;
+
+            // Ensure regular items have size in userData
+            threeMesh.userData.size = size;
+            threeMesh.userData.isCollectible = true;
+
+            debugInfo(`Created regular item: ${itemName}, size: ${size.toFixed(2)}`);
         }
 
         // Position the item with proper ground clearance
@@ -159,6 +173,12 @@ export function createCollectibleItems(count, itemNames, centerPosition = new TH
             };
             threeMesh.userData.cannonBody = itemBody;
 
+            // CRITICAL: Ensure size is set on threeMesh userData (final safety check)
+            if (!threeMesh.userData.size || threeMesh.userData.size <= 0) {
+                threeMesh.userData.size = size;
+                debugWarn(`CRITICAL FIX: Set missing size for ${itemName}: ${size.toFixed(2)}`);
+            }
+
             // Add collision event handler for item-ground interactions
             const itemCollisionHandler = (event) => {
                 handleItemCollision(itemBody, event);
@@ -183,7 +203,7 @@ export function createCollectibleItems(count, itemNames, centerPosition = new TH
                 continue;
             }
 
-            debugLog(`Successfully created and added physics body for ${itemName} at position (${itemBody.position.x.toFixed(2)}, ${itemBody.position.y.toFixed(2)}, ${itemBody.position.z.toFixed(2)})`);
+            debugInfo(`Successfully created and added physics body for ${itemName} (size: ${size.toFixed(2)}) at position (${itemBody.position.x.toFixed(2)}, ${itemBody.position.y.toFixed(2)}, ${itemBody.position.z.toFixed(2)})`);
 
         } catch (error) {
             debugError(`Failed to create physics body for item ${itemName}:`, error);
@@ -220,6 +240,12 @@ export function createCollectibleItems(count, itemNames, centerPosition = new TH
         threeMesh.userData.isFadingIn = true;
         threeMesh.userData.fadeStartTime = Date.now();
 
+        // Ensure size is set for all items (safety check)
+        if (!threeMesh.userData.size || threeMesh.userData.size <= 0) {
+            threeMesh.userData.size = size;
+            debugWarn(`Fixed missing size for item ${itemName}: ${size.toFixed(2)}`);
+        }
+
         // Mark as collectible for collision detection
         threeMesh.userData.isCollectible = true;
 
@@ -227,6 +253,7 @@ export function createCollectibleItems(count, itemNames, centerPosition = new TH
     }
 
     debugInfo(`Created ${count} collectible items around position (${centerPosition.x.toFixed(1)}, ${centerPosition.z.toFixed(1)})`);
+    debugInfo(`Item distribution:`, itemTypeCount);
 }
 
 /**
@@ -340,7 +367,16 @@ function createInstancedItem(itemName, instancedId, color, dummy) {
     threeMesh.userData.isInstanced = true;
     threeMesh.userData.instancedId = instancedId;
     threeMesh.userData.instanceIndex = -1;
-    threeMesh.userData.size = size * (baseGeometry.parameters.radius || baseGeometry.parameters.height || baseGeometry.parameters.width);
+
+    // Ensure size is always a valid number
+    let finalSize = size;
+    if (baseGeometry.parameters) {
+        const geometrySize = baseGeometry.parameters.radius || baseGeometry.parameters.height || baseGeometry.parameters.width || 1;
+        finalSize = size * geometrySize;
+    }
+
+    // Ensure size is never zero or negative
+    threeMesh.userData.size = Math.max(0.1, finalSize);
     threeMesh.userData.cannonShape = cannonShape;
     threeMesh.userData.color = color;
 
@@ -351,8 +387,7 @@ function createInstancedItem(itemName, instancedId, color, dummy) {
  * Create a regular (non-instanced) item with complex geometry
  */
 function createRegularItem(itemName, color) {
-    let itemGroup = new THREE.Group();
-    let threeMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x888888, transparent: true, opacity: 0 }));
+    let threeMesh = null;
     let cannonShape;
     let size = 1;
 
@@ -375,10 +410,112 @@ function createRegularItem(itemName, color) {
             cannonShape = houseResult.shape;
             size = houseResult.size;
             break;
+        case 'Bench':
+            const benchResult = createBenchItem(color);
+            threeMesh = benchResult.mesh;
+            cannonShape = benchResult.shape;
+            size = benchResult.size;
+            break;
+        case 'Lamp Post':
+            const lampResult = createLampPostItem(color);
+            threeMesh = lampResult.mesh;
+            cannonShape = lampResult.shape;
+            size = lampResult.size;
+            break;
+        case 'Trash Can':
+            const trashResult = createTrashCanItem(color);
+            threeMesh = trashResult.mesh;
+            cannonShape = trashResult.shape;
+            size = trashResult.size;
+            break;
+        case 'Mailbox':
+            const mailboxResult = createMailboxItem(color);
+            threeMesh = mailboxResult.mesh;
+            cannonShape = mailboxResult.shape;
+            size = mailboxResult.size;
+            break;
+        case 'Picnic Table':
+            const picnicResult = createPicnicTableItem(color);
+            threeMesh = picnicResult.mesh;
+            cannonShape = picnicResult.shape;
+            size = picnicResult.size;
+            break;
+        case 'Fire Hydrant':
+            const hydrantResult = createFireHydrantItem(color);
+            threeMesh = hydrantResult.mesh;
+            cannonShape = hydrantResult.shape;
+            size = hydrantResult.size;
+            break;
+        case 'Hot Dog Stand':
+            const hotdogResult = createHotDogStandItem(color);
+            threeMesh = hotdogResult.mesh;
+            cannonShape = hotdogResult.shape;
+            size = hotdogResult.size;
+            break;
+        case 'Newspaper Stand':
+            const newsResult = createNewsStandItem(color);
+            threeMesh = newsResult.mesh;
+            cannonShape = newsResult.shape;
+            size = newsResult.size;
+            break;
+        case 'Bicycle':
+            const bikeResult = createBicycleItem(color);
+            threeMesh = bikeResult.mesh;
+            cannonShape = bikeResult.shape;
+            size = bikeResult.size;
+            break;
+        case 'Skateboard':
+            const skateResult = createSkateboardItem(color);
+            threeMesh = skateResult.mesh;
+            cannonShape = skateResult.shape;
+            size = skateResult.size;
+            break;
+        case 'Shopping Cart':
+            const cartResult = createShoppingCartItem(color);
+            threeMesh = cartResult.mesh;
+            cannonShape = cartResult.shape;
+            size = cartResult.size;
+            break;
+        case 'Satellite':
+            const satelliteResult = createSatelliteItem(color);
+            threeMesh = satelliteResult.mesh;
+            cannonShape = satelliteResult.shape;
+            size = satelliteResult.size;
+            break;
+        case 'Alien Artifact':
+            const artifactResult = createAlienArtifactItem(color);
+            threeMesh = artifactResult.mesh;
+            cannonShape = artifactResult.shape;
+            size = artifactResult.size;
+            break;
+        case 'Space Probe':
+            const probeResult = createSpaceProbeItem(color);
+            threeMesh = probeResult.mesh;
+            cannonShape = probeResult.shape;
+            size = probeResult.size;
+            break;
         // Add more complex items as needed
         default:
             debugWarn(`Unknown regular item type: ${itemName}`);
             return null;
+    }
+
+    // Ensure the threeMesh has the size in userData for all regular items
+    if (threeMesh) {
+        // Initialize userData if it doesn't exist
+        if (!threeMesh.userData) {
+            threeMesh.userData = {};
+        }
+        threeMesh.userData.size = size;
+        threeMesh.userData.isCollectible = true;
+
+        // For Groups, ensure the root group has the size data
+        if (threeMesh.isGroup) {
+            threeMesh.userData.size = size;
+            threeMesh.userData.isCollectible = true;
+        }
+
+        debugInfo(`Set size ${size.toFixed(2)} for regular item ${itemName} (isGroup: ${threeMesh.isGroup})`);
     }
 
     return { threeMesh, cannonShape, size };
@@ -423,7 +560,7 @@ function createCarItem(color) {
     return {
         mesh: itemGroup,
         shape: cannonShape,
-        size: size * 2
+        size: size * 1.2 // Reduced from 2x to make cars more collectible
     };
 }
 
@@ -455,7 +592,7 @@ function createTreeItem(color) {
     return {
         mesh: itemGroup,
         shape: cannonShape,
-        size: size * 1.5
+        size: size * 1.0 // Reduced from 1.5x to make trees more collectible
     };
 }
 
@@ -487,7 +624,7 @@ function createHouseItem(color) {
     return {
         mesh: itemGroup,
         shape: cannonShape,
-        size: size * 1.5
+        size: size * 1.0 // Reduced from 1.5x to make houses more collectible
     };
 }
 
@@ -598,6 +735,11 @@ export function cleanupOldItems(katamariPosition) {
             // Remove physics body using the improved cleanup function
             const itemCannonBody = itemThreeMesh.userData.cannonBody;
             if (itemCannonBody) {
+                // Remove collision handler first to prevent issues
+                if (itemCannonBody.userData && itemCannonBody.userData.collisionHandler) {
+                    itemCannonBody.removeEventListener('collide', itemCannonBody.userData.collisionHandler);
+                    itemCannonBody.userData.collisionHandler = null;
+                }
                 removePhysicsBody(itemCannonBody);
             }
 
@@ -975,4 +1117,557 @@ export function cleanupItemsSystem() {
     const validationResults = validateAndFixPhysicsWorld();
 
     debugInfo(`Comprehensive items system cleanup completed. Validation results: ${JSON.stringify(validationResults)}`);
+}
+
+/**
+ * Create a bench item with detailed geometry
+ */
+function createBenchItem(color) {
+    const size = Math.random() * 1.5 + 0.8;
+    const itemGroup = new THREE.Group();
+
+    // Bench seat
+    const seatGeo = new THREE.BoxGeometry(size * 2, size * 0.1, size * 0.4);
+    const seatMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, transparent: true, opacity: 0 });
+    const seat = new THREE.Mesh(seatGeo, seatMat);
+    seat.castShadow = seat.receiveShadow = true;
+    seat.position.y = size * 0.4;
+    itemGroup.add(seat);
+
+    // Bench back
+    const backGeo = new THREE.BoxGeometry(size * 2, size * 0.6, size * 0.1);
+    const backMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, transparent: true, opacity: 0 });
+    const back = new THREE.Mesh(backGeo, backMat);
+    back.castShadow = back.receiveShadow = true;
+    back.position.set(0, size * 0.7, -size * 0.15);
+    itemGroup.add(back);
+
+    // Legs
+    const legGeo = new THREE.BoxGeometry(size * 0.1, size * 0.4, size * 0.1);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8, transparent: true, opacity: 0 });
+    const legPositions = [[-0.8, 0.15], [0.8, 0.15], [-0.8, -0.15], [0.8, -0.15]];
+
+    legPositions.forEach(([dx, dz]) => {
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.set(size * dx, size * 0.2, size * dz);
+        itemGroup.add(leg);
+    });
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size, size * 0.3, size * 0.2));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 0.8
+    };
+}
+
+/**
+ * Create a lamp post item with detailed geometry
+ */
+function createLampPostItem(color) {
+    const size = Math.random() * 2 + 1.5;
+    const itemGroup = new THREE.Group();
+
+    // Post
+    const postGeo = new THREE.CylinderGeometry(size * 0.05, size * 0.08, size * 3, 8);
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.8, transparent: true, opacity: 0 });
+    const post = new THREE.Mesh(postGeo, postMat);
+    post.castShadow = post.receiveShadow = true;
+    post.position.y = size * 1.5;
+    itemGroup.add(post);
+
+    // Lamp
+    const lampGeo = new THREE.SphereGeometry(size * 0.2, 16, 16);
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xFFFFAA, roughness: 0.3, transparent: true, opacity: 0 });
+    const lamp = new THREE.Mesh(lampGeo, lampMat);
+    lamp.castShadow = lamp.receiveShadow = true;
+    lamp.position.y = size * 2.8;
+    itemGroup.add(lamp);
+
+    const cannonShape = new CANNON.Cylinder(size * 0.08, size * 0.2, size * 3, 8);
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 1.2
+    };
+}
+
+/**
+ * Create a trash can item with detailed geometry
+ */
+function createTrashCanItem(color) {
+    const size = Math.random() * 1.2 + 0.6;
+    const itemGroup = new THREE.Group();
+
+    // Main body
+    const bodyGeo = new THREE.CylinderGeometry(size * 0.4, size * 0.5, size * 1.2, 16);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.7, transparent: true, opacity: 0 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = body.receiveShadow = true;
+    body.position.y = size * 0.6;
+    itemGroup.add(body);
+
+    // Lid
+    const lidGeo = new THREE.CylinderGeometry(size * 0.45, size * 0.45, size * 0.1, 16);
+    const lidMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7, transparent: true, opacity: 0 });
+    const lid = new THREE.Mesh(lidGeo, lidMat);
+    lid.castShadow = lid.receiveShadow = true;
+    lid.position.y = size * 1.25;
+    itemGroup.add(lid);
+
+    const cannonShape = new CANNON.Cylinder(size * 0.5, size * 0.45, size * 1.3, 16);
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 0.9
+    };
+}
+
+/**
+ * Create a mailbox item with detailed geometry
+ */
+function createMailboxItem(color) {
+    const size = Math.random() * 1.0 + 0.5;
+    const itemGroup = new THREE.Group();
+
+    // Post
+    const postGeo = new THREE.CylinderGeometry(size * 0.03, size * 0.03, size * 1.2, 8);
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8, transparent: true, opacity: 0 });
+    const post = new THREE.Mesh(postGeo, postMat);
+    post.castShadow = post.receiveShadow = true;
+    post.position.y = size * 0.6;
+    itemGroup.add(post);
+
+    // Mailbox body
+    const boxGeo = new THREE.BoxGeometry(size * 0.6, size * 0.3, size * 0.4);
+    const boxMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true, opacity: 0 });
+    const box = new THREE.Mesh(boxGeo, boxMat);
+    box.castShadow = box.receiveShadow = true;
+    box.position.y = size * 1.0;
+    itemGroup.add(box);
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.3, size * 0.6, size * 0.2));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 0.7
+    };
+}
+
+/**
+ * Create a picnic table item with detailed geometry
+ */
+function createPicnicTableItem(color) {
+    const size = Math.random() * 1.5 + 1.0;
+    const itemGroup = new THREE.Group();
+
+    // Table top
+    const topGeo = new THREE.BoxGeometry(size * 2, size * 0.1, size * 1);
+    const topMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8, transparent: true, opacity: 0 });
+    const top = new THREE.Mesh(topGeo, topMat);
+    top.castShadow = top.receiveShadow = true;
+    top.position.y = size * 0.7;
+    itemGroup.add(top);
+
+    // Benches
+    const benchGeo = new THREE.BoxGeometry(size * 1.8, size * 0.08, size * 0.3);
+    const benchMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.8, transparent: true, opacity: 0 });
+
+    const bench1 = new THREE.Mesh(benchGeo, benchMat);
+    bench1.position.set(0, size * 0.4, size * 0.65);
+    itemGroup.add(bench1);
+
+    const bench2 = new THREE.Mesh(benchGeo, benchMat);
+    bench2.position.set(0, size * 0.4, -size * 0.65);
+    itemGroup.add(bench2);
+
+    // Legs
+    const legGeo = new THREE.BoxGeometry(size * 0.1, size * 0.7, size * 0.1);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x654321, roughness: 0.8, transparent: true, opacity: 0 });
+    const legPositions = [[-0.8, 0.4], [0.8, 0.4], [-0.8, -0.4], [0.8, -0.4]];
+
+    legPositions.forEach(([dx, dz]) => {
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.set(size * dx, size * 0.35, size * dz);
+        itemGroup.add(leg);
+    });
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size, size * 0.4, size * 0.5));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 1.2
+    };
+}
+
+/**
+ * Create a fire hydrant item with detailed geometry
+ */
+function createFireHydrantItem(color) {
+    const size = Math.random() * 1.0 + 0.6;
+    const itemGroup = new THREE.Group();
+
+    // Main body
+    const bodyGeo = new THREE.CylinderGeometry(size * 0.3, size * 0.35, size * 1.0, 8);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xFF0000, roughness: 0.6, transparent: true, opacity: 0 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = body.receiveShadow = true;
+    body.position.y = size * 0.5;
+    itemGroup.add(body);
+
+    // Top cap
+    const capGeo = new THREE.CylinderGeometry(size * 0.25, size * 0.3, size * 0.2, 8);
+    const capMat = new THREE.MeshStandardMaterial({ color: 0xCC0000, roughness: 0.6, transparent: true, opacity: 0 });
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.castShadow = cap.receiveShadow = true;
+    cap.position.y = size * 1.1;
+    itemGroup.add(cap);
+
+    // Side outlets
+    const outletGeo = new THREE.CylinderGeometry(size * 0.08, size * 0.08, size * 0.2, 8);
+    const outletMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7, transparent: true, opacity: 0 });
+
+    const outlet1 = new THREE.Mesh(outletGeo, outletMat);
+    outlet1.rotation.z = Math.PI / 2;
+    outlet1.position.set(size * 0.4, size * 0.7, 0);
+    itemGroup.add(outlet1);
+
+    const outlet2 = new THREE.Mesh(outletGeo, outletMat);
+    outlet2.rotation.z = -Math.PI / 2;
+    outlet2.position.set(-size * 0.4, size * 0.7, 0);
+    itemGroup.add(outlet2);
+
+    const cannonShape = new CANNON.Cylinder(size * 0.35, size * 0.25, size * 1.2, 8);
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 0.8
+    };
+}
+
+/**
+ * Create a hot dog stand item with detailed geometry
+ */
+function createHotDogStandItem(color) {
+    const size = Math.random() * 1.5 + 1.0;
+    const itemGroup = new THREE.Group();
+
+    // Cart base
+    const baseGeo = new THREE.BoxGeometry(size * 1.5, size * 0.8, size * 1.0);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.6, transparent: true, opacity: 0 });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.castShadow = base.receiveShadow = true;
+    base.position.y = size * 0.4;
+    itemGroup.add(base);
+
+    // Umbrella
+    const umbrellaGeo = new THREE.ConeGeometry(size * 1.2, size * 0.3, 16);
+    const umbrellaMat = new THREE.MeshStandardMaterial({ color: 0xFF6347, roughness: 0.5, transparent: true, opacity: 0 });
+    const umbrella = new THREE.Mesh(umbrellaGeo, umbrellaMat);
+    umbrella.castShadow = umbrella.receiveShadow = true;
+    umbrella.position.y = size * 1.5;
+    itemGroup.add(umbrella);
+
+    // Pole
+    const poleGeo = new THREE.CylinderGeometry(size * 0.02, size * 0.02, size * 1.0, 8);
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8, transparent: true, opacity: 0 });
+    const pole = new THREE.Mesh(poleGeo, poleMat);
+    pole.position.y = size * 1.0;
+    itemGroup.add(pole);
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.75, size * 0.4, size * 0.5));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 1.0
+    };
+}
+
+/**
+ * Create a newspaper stand item with detailed geometry
+ */
+function createNewsStandItem(color) {
+    const size = Math.random() * 1.0 + 0.8;
+    const itemGroup = new THREE.Group();
+
+    // Main box
+    const boxGeo = new THREE.BoxGeometry(size * 0.8, size * 1.2, size * 0.4);
+    const boxMat = new THREE.MeshStandardMaterial({ color: 0x4169E1, roughness: 0.6, transparent: true, opacity: 0 });
+    const box = new THREE.Mesh(boxGeo, boxMat);
+    box.castShadow = box.receiveShadow = true;
+    box.position.y = size * 0.6;
+    itemGroup.add(box);
+
+    // Glass front
+    const glassGeo = new THREE.BoxGeometry(size * 0.82, size * 0.8, size * 0.02);
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x87CEEB, roughness: 0.1, transparent: true, opacity: 0.3 });
+    const glass = new THREE.Mesh(glassGeo, glassMat);
+    glass.position.set(0, size * 0.8, size * 0.21);
+    itemGroup.add(glass);
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.4, size * 0.6, size * 0.2));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 0.7
+    };
+}
+
+/**
+ * Create a bicycle item with detailed geometry
+ */
+function createBicycleItem(color) {
+    const size = Math.random() * 1.2 + 0.8;
+    const itemGroup = new THREE.Group();
+
+    // Frame
+    const frameGeo = new THREE.BoxGeometry(size * 1.5, size * 0.05, size * 0.05);
+    const frameMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true, opacity: 0 });
+    const frame = new THREE.Mesh(frameGeo, frameMat);
+    frame.castShadow = frame.receiveShadow = true;
+    frame.position.y = size * 0.5;
+    itemGroup.add(frame);
+
+    // Wheels
+    const wheelGeo = new THREE.TorusGeometry(size * 0.3, size * 0.05, 8, 16);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, transparent: true, opacity: 0 });
+
+    const frontWheel = new THREE.Mesh(wheelGeo, wheelMat);
+    frontWheel.rotation.y = Math.PI / 2;
+    frontWheel.position.set(size * 0.6, size * 0.3, 0);
+    itemGroup.add(frontWheel);
+
+    const backWheel = new THREE.Mesh(wheelGeo, wheelMat);
+    backWheel.rotation.y = Math.PI / 2;
+    backWheel.position.set(-size * 0.6, size * 0.3, 0);
+    itemGroup.add(backWheel);
+
+    // Handlebars
+    const handleGeo = new THREE.CylinderGeometry(size * 0.02, size * 0.02, size * 0.4, 8);
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7, transparent: true, opacity: 0 });
+    const handle = new THREE.Mesh(handleGeo, handleMat);
+    handle.rotation.z = Math.PI / 2;
+    handle.position.set(size * 0.6, size * 0.8, 0);
+    itemGroup.add(handle);
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.75, size * 0.3, size * 0.15));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 0.9
+    };
+}
+
+/**
+ * Create a skateboard item with detailed geometry
+ */
+function createSkateboardItem(color) {
+    const size = Math.random() * 0.8 + 0.4;
+    const itemGroup = new THREE.Group();
+
+    // Deck
+    const deckGeo = new THREE.BoxGeometry(size * 2, size * 0.05, size * 0.3);
+    const deckMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7, transparent: true, opacity: 0 });
+    const deck = new THREE.Mesh(deckGeo, deckMat);
+    deck.castShadow = deck.receiveShadow = true;
+    deck.position.y = size * 0.1;
+    itemGroup.add(deck);
+
+    // Wheels
+    const wheelGeo = new THREE.CylinderGeometry(size * 0.08, size * 0.08, size * 0.05, 16);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.8, transparent: true, opacity: 0 });
+    const wheelPositions = [[-0.7, 0.1], [0.7, 0.1], [-0.7, -0.1], [0.7, -0.1]];
+
+    wheelPositions.forEach(([dx, dz]) => {
+        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(size * dx, size * 0.05, size * dz);
+        itemGroup.add(wheel);
+    });
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size, size * 0.05, size * 0.15));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 0.6
+    };
+}
+
+/**
+ * Create a shopping cart item with detailed geometry
+ */
+function createShoppingCartItem(color) {
+    const size = Math.random() * 1.2 + 0.8;
+    const itemGroup = new THREE.Group();
+
+    // Basket
+    const basketGeo = new THREE.BoxGeometry(size * 1.0, size * 0.6, size * 0.8);
+    const basketMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7, transparent: true, opacity: 0 });
+    const basket = new THREE.Mesh(basketGeo, basketMat);
+    basket.castShadow = basket.receiveShadow = true;
+    basket.position.y = size * 0.5;
+    itemGroup.add(basket);
+
+    // Handle
+    const handleGeo = new THREE.CylinderGeometry(size * 0.02, size * 0.02, size * 1.0, 8);
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.8, transparent: true, opacity: 0 });
+    const handle = new THREE.Mesh(handleGeo, handleMat);
+    handle.rotation.z = Math.PI / 2;
+    handle.position.set(-size * 0.7, size * 0.9, 0);
+    itemGroup.add(handle);
+
+    // Wheels
+    const wheelGeo = new THREE.CylinderGeometry(size * 0.08, size * 0.08, size * 0.05, 16);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, transparent: true, opacity: 0 });
+    const wheelPositions = [[-0.4, 0.35], [0.4, 0.35], [-0.4, -0.35], [0.4, -0.35]];
+
+    wheelPositions.forEach(([dx, dz]) => {
+        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(size * dx, size * 0.08, size * dz);
+        itemGroup.add(wheel);
+    });
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.5, size * 0.3, size * 0.4));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 0.8
+    };
+}
+
+/**
+ * Create a satellite item with detailed geometry
+ */
+function createSatelliteItem(color) {
+    const size = Math.random() * 2 + 1.5;
+    const itemGroup = new THREE.Group();
+
+    // Main body
+    const bodyGeo = new THREE.BoxGeometry(size * 1.0, size * 0.8, size * 1.2);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xC0C0C0, roughness: 0.3, transparent: true, opacity: 0 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = body.receiveShadow = true;
+    itemGroup.add(body);
+
+    // Solar panels
+    const panelGeo = new THREE.BoxGeometry(size * 2.5, size * 0.05, size * 1.5);
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x000080, roughness: 0.2, transparent: true, opacity: 0 });
+
+    const panel1 = new THREE.Mesh(panelGeo, panelMat);
+    panel1.position.set(size * 1.75, 0, 0);
+    itemGroup.add(panel1);
+
+    const panel2 = new THREE.Mesh(panelGeo, panelMat);
+    panel2.position.set(-size * 1.75, 0, 0);
+    itemGroup.add(panel2);
+
+    // Antenna
+    const antennaGeo = new THREE.CylinderGeometry(size * 0.02, size * 0.02, size * 1.5, 8);
+    const antennaMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7, transparent: true, opacity: 0 });
+    const antenna = new THREE.Mesh(antennaGeo, antennaMat);
+    antenna.position.y = size * 1.15;
+    itemGroup.add(antenna);
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size * 1.25, size * 0.4, size * 0.6));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 1.5
+    };
+}
+
+/**
+ * Create an alien artifact item with detailed geometry
+ */
+function createAlienArtifactItem(color) {
+    const size = Math.random() * 1.5 + 1.0;
+    const itemGroup = new THREE.Group();
+
+    // Main crystal
+    const crystalGeo = new THREE.OctahedronGeometry(size * 0.8);
+    const crystalMat = new THREE.MeshStandardMaterial({
+        color: 0x00FF00,
+        roughness: 0.1,
+        transparent: true,
+        opacity: 0.8,
+        emissive: 0x002200
+    });
+    const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+    crystal.castShadow = crystal.receiveShadow = true;
+    crystal.position.y = size * 0.4;
+    itemGroup.add(crystal);
+
+    // Base
+    const baseGeo = new THREE.CylinderGeometry(size * 0.6, size * 0.8, size * 0.3, 8);
+    const baseMat = new THREE.MeshStandardMaterial({
+        color: 0x444444,
+        roughness: 0.3,
+        transparent: true,
+        opacity: 0,
+        metalness: 0.8
+    });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.castShadow = base.receiveShadow = true;
+    base.position.y = size * 0.15;
+    itemGroup.add(base);
+
+    const cannonShape = new CANNON.Sphere(size * 0.8);
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 1.0
+    };
+}
+
+/**
+ * Create a space probe item with detailed geometry
+ */
+function createSpaceProbeItem(color) {
+    const size = Math.random() * 2 + 1.5;
+    const itemGroup = new THREE.Group();
+
+    // Main body
+    const bodyGeo = new THREE.ConeGeometry(size * 0.4, size * 2.0, 8);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.4, transparent: true, opacity: 0 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = body.receiveShadow = true;
+    body.position.y = size * 1.0;
+    itemGroup.add(body);
+
+    // Dish antenna
+    const dishGeo = new THREE.ConeGeometry(size * 0.6, size * 0.2, 16);
+    const dishMat = new THREE.MeshStandardMaterial({ color: 0xC0C0C0, roughness: 0.3, transparent: true, opacity: 0 });
+    const dish = new THREE.Mesh(dishGeo, dishMat);
+    dish.rotation.x = Math.PI;
+    dish.position.y = size * 2.2;
+    itemGroup.add(dish);
+
+    // Thruster
+    const thrusterGeo = new THREE.CylinderGeometry(size * 0.15, size * 0.2, size * 0.5, 8);
+    const thrusterMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.6, transparent: true, opacity: 0 });
+    const thruster = new THREE.Mesh(thrusterGeo, thrusterMat);
+    thruster.position.y = -size * 0.25;
+    itemGroup.add(thruster);
+
+    const cannonShape = new CANNON.Cylinder(size * 0.4, size * 0.15, size * 2.5, 8);
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 1.3
+    };
 }

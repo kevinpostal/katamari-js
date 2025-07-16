@@ -29,7 +29,7 @@ let physicsDebugState = {
     bodyCreationCount: 0,
     bodyRemovalCount: 0,
     lastValidationTime: 0,
-    validationInterval: 10000, // Validate every 10 seconds
+    validationInterval: 30000, // Validate every 30 seconds (reduced frequency)
     bodyCreationLog: [],
     bodyRemovalLog: [],
     maxLogEntries: 100,
@@ -839,7 +839,7 @@ export function performPhysicsWorldIntegrityCheck() {
  * Monitor physics body count and alert on unusual changes
  * @param {number} threshold - Threshold for alerting on rapid changes (default: 10)
  */
-export function monitorPhysicsBodyCount(threshold = 10) {
+export function monitorPhysicsBodyCount(threshold = 25) {
     const currentCount = physicsBodies.length;
     const worldCount = world ? world.bodies.length : 0;
     

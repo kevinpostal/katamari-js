@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { createKatamariBody, updateKatamariPhysics } from '../core/physics.js';
+import { createKatamariBody, updateKatamariPhysics, removePhysicsBody, addPhysicsBody } from '../core/physics.js';
 import { debugInfo, debugWarn, debugError, debugLog } from '../utils/debug.js';
 import { KATAMARI } from '../utils/constants.js';
 
@@ -99,7 +99,8 @@ export class Katamari {
         // Add collision event listener
         this.body.addEventListener('collide', this.collisionHandler);
 
-        this.world.addBody(this.body);
+        // Add to physics world using proper tracking system
+        addPhysicsBody(this.body, true); // Track the katamari body
         this.updatePhysics(); // Initial physics update
 
         debugInfo("Katamari collision event handler registered");
@@ -362,11 +363,38 @@ export class Katamari {
         // Update visual position to match clamped physics body position
         this.group.position.copy(this.body.position);
 
-        // Handle size growth animation
+        // Handle size growth animation with dynamic speed
         if (this.radius < this.targetRadius) {
-            this.radius = THREE.MathUtils.lerp(this.radius, this.targetRadius, 0.05);
-            this.updatePhysics();
-            this.updateVisuals();
+            const growthDifference = this.targetRadius - this.radius;
+
+            // Dynamic lerp speed - faster for larger differences, slower as we approach target
+            // This creates a more satisfying growth curve similar to the original game
+            const baseLerpSpeed = 0.08;
+            const dynamicLerpSpeed = Math.min(0.15, baseLerpSpeed + (growthDifference * 0.5));
+
+            const oldRadius = this.radius;
+            this.radius = THREE.MathUtils.lerp(this.radius, this.targetRadius, dynamicLerpSpeed);
+
+            // Only update physics and visuals if there's a meaningful change
+            if (Math.abs(this.radius - oldRadius) > 0.001) {
+                // Smoothly adjust position to prevent ground penetration during growth
+                const positionAdjustment = this.radius - oldRadius;
+                this.body.position.y += positionAdjustment;
+
+                this.updatePhysics();
+                this.updateVisuals();
+
+                // Ensure we don't go below ground during growth
+                this.body.position.y = Math.max(this.radius, this.body.position.y);
+                this.group.position.copy(this.body.position);
+            }
+
+            // Snap to target when very close to avoid infinite tiny updates
+            if (Math.abs(this.targetRadius - this.radius) < 0.01) {
+                this.radius = this.targetRadius;
+                this.updatePhysics();
+                this.updateVisuals();
+            }
         }
     }
 
@@ -401,25 +429,15 @@ export class Katamari {
     collectItem(itemSize, volumeContributionFactor = 0.8) {
         const oldRadius = this.radius;
         const newVolume = Math.pow(oldRadius, 3) + Math.pow(itemSize, 3) * volumeContributionFactor;
-        this.radius = Math.cbrt(newVolume);
-        this.targetRadius = this.radius;
+        const newRadius = Math.cbrt(newVolume);
 
-        // Adjust position to prevent ground penetration
-        const positionAdjustment = this.radius - oldRadius;
-        this.body.position.y += positionAdjustment;
-
-        this.updatePhysics();
-
-        // Ensure we don't go below ground
-        this.body.position.y = Math.max(this.radius, this.body.position.y);
-
-        // Update visuals immediately
-        this.updateVisuals();
+        // Set target radius for smooth animation instead of immediate change
+        this.targetRadius = newRadius;
 
         // Increment collection count
         this.itemsCollectedCount++;
 
-        debugInfo(`Item collected! New radius: ${this.radius.toFixed(2)}m, Items collected: ${this.itemsCollectedCount}`);
+        debugInfo(`Item collected! Target radius: ${this.targetRadius.toFixed(2)}m (current: ${this.radius.toFixed(2)}m), Items collected: ${this.itemsCollectedCount}`);
     }
 
     /**
@@ -546,16 +564,43 @@ export class Katamari {
 
         // Ignore collisions with ground or non-item bodies
         if (!otherBody.userData || !otherBody.userData.threeMesh || otherBody.userData.isGround) {
+            debugLog(`Ignoring collision with: ${otherBody.userData?.name || 'unnamed'} (isGround: ${otherBody.userData?.isGround})`);
             return;
         }
 
         const itemThreeMesh = otherBody.userData.threeMesh;
-        const itemSize = itemThreeMesh.userData.size;
+        let itemSize = itemThreeMesh.userData.size;
 
         // Check if itemSize is valid
-        if (!itemSize || typeof itemSize !== 'number') {
-            debugWarn(`Invalid item size in collision: ${itemSize}`);
-            return;
+        if (!itemSize || typeof itemSize !== 'number' || itemSize <= 0) {
+            debugWarn(`Invalid item size in collision: ${itemSize} for item: ${otherBody.userData?.name || 'unnamed'}`);
+            
+            // Try to fix the size if we can determine it from the physics body shape
+            let fixedSize = null;
+            
+            if (otherBody.shape) {
+                if (otherBody.shape.radius) {
+                    // Sphere shape
+                    fixedSize = otherBody.shape.radius * 2;
+                } else if (otherBody.shape.halfExtents) {
+                    // Box shape - use the largest dimension
+                    const extents = otherBody.shape.halfExtents;
+                    fixedSize = Math.max(extents.x, extents.y, extents.z) * 2;
+                } else if (otherBody.shape.radiusTop || otherBody.shape.radiusBottom) {
+                    // Cylinder shape
+                    const radius = Math.max(otherBody.shape.radiusTop || 0, otherBody.shape.radiusBottom || 0);
+                    fixedSize = radius * 2;
+                }
+            }
+            
+            if (fixedSize && fixedSize > 0) {
+                debugWarn(`Fixed size using physics shape: ${fixedSize.toFixed(2)}`);
+                itemThreeMesh.userData.size = fixedSize;
+                itemSize = fixedSize; // Update the itemSize variable to continue with collision detection
+            } else {
+                debugError(`Could not determine size for item ${otherBody.userData?.name || 'unnamed'}, skipping collision`);
+                return;
+            }
         }
 
         // Ensure it's a collectible item that hasn't been collected yet
@@ -564,6 +609,8 @@ export class Katamari {
         }
 
         debugInfo(`Collision detected with item: ${otherBody.userData.name}, size: ${itemSize.toFixed(2)}m, katamari radius: ${this.radius.toFixed(2)}m`);
+        debugInfo(`Item isCollectible: ${itemThreeMesh.userData.isCollectible}, isCollected: ${itemThreeMesh.userData.isCollected}`);
+        debugInfo(`Can collect check: katamari radius ${this.radius.toFixed(2)} >= item size * 0.5 (${(itemSize * 0.5).toFixed(2)}) = ${this.canCollectItem(itemSize)}`);
 
         // Check if katamari can collect the item (using same logic as working backup)
         if (this.canCollectItem(itemSize)) {
@@ -624,7 +671,10 @@ export class Katamari {
      * Check if the katamari can collect an item of given size
      */
     canCollectItem(itemSize) {
-        return this.radius >= itemSize * 0.6; // Slightly more restrictive for better gameplay balance
+        // Much more generous collection threshold - katamari should be able to collect items that are clearly smaller
+        // Using 0.5 factor means katamari needs to be 50% the size of the item to collect it
+        // This matches the original Katamari Damacy feel where you can collect items that look smaller
+        return this.radius >= itemSize * 0.5; // Very generous for better gameplay experience
     }
 
     /**
@@ -669,7 +719,9 @@ export class Katamari {
                 debugInfo("Katamari collision event handler removed");
             }
 
-            this.world.removeBody(this.body);
+            // Use proper physics body removal function to ensure tracking is updated
+            removePhysicsBody(this.body);
+            debugInfo("Katamari physics body properly removed from world and tracking");
         }
     }
 }
