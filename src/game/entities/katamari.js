@@ -396,6 +396,48 @@ export class Katamari {
                 this.updateVisuals();
             }
         }
+
+        // Handle attached item orbiting and compression animation (like original game)
+        this.updateAttachedItems();
+    }
+
+    /**
+     * Update attached items with orbiting and compression animation like the original game
+     */
+    updateAttachedItems() {
+        const deltaTime = 1/60; // Approximate delta time for consistent animation
+
+        for (let i = this.group.children.length - 1; i >= 0; i--) {
+            const child = this.group.children[i];
+            
+            // Skip the core ball
+            if (child.name === 'core') continue;
+            
+            if (child.userData.isAttachedToKatamari && child.userData.initialLocalPosition) {
+                // Calculate dynamic compression based on current Katamari size
+                const compressionFactor = Math.max(0.4, 1.0 - this.radius * 0.005);
+                
+                // Calculate tighter positioning as katamari grows
+                const desiredDistance = this.radius + child.userData.initialSize * 0.3 * compressionFactor;
+                const direction = child.userData.initialLocalPosition.clone().normalize();
+                const currentLocalPosition = direction.multiplyScalar(desiredDistance);
+
+                // Apply orbital rotation for dynamic movement
+                child.userData.currentOrbitalAngle = (child.userData.currentOrbitalAngle || 0) + child.userData.rotationSpeed * deltaTime;
+                currentLocalPosition.applyAxisAngle(new THREE.Vector3(0, 1, 0), child.userData.currentOrbitalAngle);
+
+                // Update position
+                child.position.copy(currentLocalPosition);
+
+                // Apply stronger compression scaling as katamari grows
+                const scale = 0.7 * compressionFactor;
+                child.scale.set(scale, scale, scale);
+
+                // Make items slowly rotate on their own axis for visual interest
+                child.rotation.y += deltaTime * 0.5;
+                child.rotation.x += deltaTime * 0.3;
+            }
+        }
     }
 
     /**
@@ -441,52 +483,51 @@ export class Katamari {
     }
 
     /**
-     * Attach an item to the katamari visually
+     * Attach an item to the katamari visually with proper compression like the original game
      */
     attachItem(itemMesh, itemWorldPosition) {
+        let attachedMesh = itemMesh;
+
         // Handle instanced vs regular items differently
         if (itemMesh.userData.isInstanced) {
             // For instanced items, create a new mesh to attach to katamari
-            const attachedMesh = this.createAttachedItemMesh(itemMesh);
-            if (attachedMesh) {
-                this.group.add(attachedMesh);
-
-                // Calculate local position on katamari surface
-                const directionFromCenter = new THREE.Vector3().subVectors(itemWorldPosition, this.group.position);
-                const localDirection = directionFromCenter.clone();
-                this.group.worldToLocal(localDirection);
-
-                // Position on surface with compression
-                const compressionFactor = Math.max(0.4, 1.0 - this.radius * 0.005);
-                const minOrbitalDistance = this.radius + itemMesh.userData.size * 0.3 * compressionFactor;
-                localDirection.normalize().multiplyScalar(minOrbitalDistance);
-
-                attachedMesh.position.copy(localDirection);
-                attachedMesh.userData.isAttachedToKatamari = true;
-                attachedMesh.userData.initialLocalPosition = localDirection.clone();
-
-                debugInfo(`Instanced item attached to katamari at local position: ${localDirection.x.toFixed(2)}, ${localDirection.y.toFixed(2)}, ${localDirection.z.toFixed(2)}`);
-            }
+            attachedMesh = this.createAttachedItemMesh(itemMesh);
+            if (!attachedMesh) return;
+            
+            this.group.add(attachedMesh);
         } else {
             // For regular items, add directly to katamari group
             this.group.add(itemMesh);
-
-            // Calculate local position on katamari surface
-            const directionFromCenter = new THREE.Vector3().subVectors(itemWorldPosition, this.group.position);
-            const localDirection = directionFromCenter.clone();
-            this.group.worldToLocal(localDirection);
-
-            // Position on surface with compression
-            const compressionFactor = Math.max(0.4, 1.0 - this.radius * 0.005);
-            const minOrbitalDistance = this.radius + itemMesh.userData.size * 0.3 * compressionFactor;
-            localDirection.normalize().multiplyScalar(minOrbitalDistance);
-
-            itemMesh.position.copy(localDirection);
-            itemMesh.userData.isAttachedToKatamari = true;
-            itemMesh.userData.initialLocalPosition = localDirection.clone();
-
-            debugInfo(`Regular item attached to katamari at local position: ${localDirection.x.toFixed(2)}, ${localDirection.y.toFixed(2)}, ${localDirection.z.toFixed(2)}`);
         }
+
+        // Calculate the direction from Katamari's center to the item's original world position
+        const directionFromKatamariCenter = new THREE.Vector3().subVectors(itemWorldPosition, this.group.position);
+
+        // Transform this direction into the Katamari's local space
+        const localDirection = directionFromKatamariCenter.applyQuaternion(this.group.quaternion.clone().invert());
+
+        // Calculate compression factor - more compression as katamari grows
+        const compressionFactor = Math.max(0.4, 1.0 - this.radius * 0.005);
+        
+        // Position on surface with proper compression (closer to surface than before)
+        const minOrbitalDistance = this.radius + attachedMesh.userData.size * 0.3 * compressionFactor;
+        localDirection.normalize().multiplyScalar(minOrbitalDistance);
+
+        // Set the item's initial local position
+        attachedMesh.position.copy(localDirection);
+
+        // Store data for animation and compression
+        attachedMesh.userData.isAttachedToKatamari = true;
+        attachedMesh.userData.initialLocalPosition = localDirection.clone();
+        attachedMesh.userData.initialSize = attachedMesh.userData.size; // Store original size
+        attachedMesh.userData.rotationSpeed = (Math.random() * 0.5 + 0.2); // Random speed for individual rotation
+        attachedMesh.userData.currentOrbitalAngle = 0; // Initialize orbital angle
+
+        // Apply compression scale to the item for visual effect (like original game)
+        const compressionScale = 0.7 * compressionFactor; // Strong compression
+        attachedMesh.scale.set(compressionScale, compressionScale, compressionScale);
+
+        debugInfo(`Item attached to katamari with compression: scale=${compressionScale.toFixed(2)}, distance=${minOrbitalDistance.toFixed(2)}`);
     }
 
     /**
