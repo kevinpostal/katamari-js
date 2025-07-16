@@ -1,0 +1,46 @@
+{
+  "name": "katamari-js",
+  "version": "1.0.0",
+  "description": "A browser-based 3D physics game inspired by Katamari Damacy",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --mode production",
+    "build:dev": "vite build --mode development",
+    "build:analyze": "vite build --mode analyze",
+    "build:size": "npm run build && echo 'Build completed. Check dist/ for optimized files.'",
+    "build:report": "npm run build:analyze && echo 'Bundle analysis complete. Check dist/stats.html'",
+    "preview": "vite preview",
+    "preview:build": "npm run build && vite preview",
+    "clean": "rimraf dist",
+    "build:clean": "npm run clean && npm run build",
+    "build:test": "npm run build && npm run preview"
+  },
+  "dependencies": {
+    "cannon-es": "0.20.0",
+    "three": "0.153.0",
+    "tone": "14.8.49",
+    "yarn": "^1.22.22"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-replace": "^5.0.5",
+    "@rollup/plugin-terser": "^0.4.4",
+    "rimraf": "^6.0.1",
+    "rollup-plugin-visualizer": "^5.12.0",
+    "terser": "^5.43.1",
+    "vite": "^5.0.0"
+  },
+  "keywords": [
+    "game",
+    "3d",
+    "physics",
+    "katamari",
+    "three.js",
+    "cannon-es",
+    "tone.js"
+  ],
+  "author": "",
+  "license": "MIT"
+}
