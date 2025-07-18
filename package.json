@@ -49,7 +49,9 @@
     "test:debug": "vitest --run --reporter=verbose --no-coverage",
     "test:profile": "vitest --run --reporter=verbose --coverage --config vitest.profile.config.js",
     "test:dashboard": "node scripts/test-metrics-dashboard.js",
-    "test:report": "npm run test:coverage && npm run test:dashboard"
+    "test:report": "npm run test:coverage && npm run test:dashboard",
+    "deploy": "node deploy.js",
+    "deploy:build": "npm run build && npm run deploy"
   },
   "dependencies": {
     "cannon-es": "0.20.0",

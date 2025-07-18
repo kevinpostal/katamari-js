@@ -5,7 +5,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # Build outputs
-dist/
+# dist/ - Commented out for GitHub Pages deployment
 .vite/
 
 # IDE and editor files
