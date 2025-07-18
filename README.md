@@ -2,7 +2,7 @@
 
 A browser-based 3D physics game inspired by Katamari Damacy, built with modern web technologies. Roll around procedurally generated worlds, collecting objects to grow your katamari from tiny to cosmic proportions.
 
-![Game Preview](https://img.shields.io/badge/Status-Playable-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.0-blue) ![License](https://img.shields.io/badge/License-MIT-green)
+![CI Status](https://github.com/yourusername/katamari-js/workflows/Continuous%20Integration/badge.svg) ![Coverage](https://codecov.io/gh/yourusername/katamari-js/branch/main/graph/badge.svg) ![Game Preview](https://img.shields.io/badge/Status-Playable-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.0-blue) ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## 🎮 Play Now
 

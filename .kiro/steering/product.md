@@ -37,3 +37,14 @@ inclusion: always
 - **Instanced rendering** - Use for repeated objects (MAX_INSTANCES = 1000)
 - **Dynamic optimization** - Activate/deactivate physics bodies based on relevance
 - **Memory management** - Clean up distant objects to prevent memory leaks
+
+## Development Guidelines
+
+- **Single-file architecture** - All game code lives in `index.html` using IIFE module pattern
+- **No build system** - Import dependencies via ES6 modules from CDN only
+- **Physics naming** - Prefix physics bodies with descriptive names for debugging
+- **Conditional logging** - Use `debugLog()`, `debugWarn()`, `debugError()` functions
+- **Code organization** - Group related functionality with clear comment sections
+- **Variable conventions** - Use `const` for immutable references, `let` for variables
+- **Performance-first** - Always consider frame rate impact when adding features
+- **Mobile compatibility** - Ensure touch controls work alongside desktop controls

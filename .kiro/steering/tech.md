@@ -11,34 +11,40 @@ inclusion: always
 - **Tone.js** (v14.8.49) - Real-time audio synthesis
 - **Vanilla JavaScript** - ES6+ modules, no build system
 
-## Code Architecture Rules
+## Mandatory Architecture Rules
 
-- Single HTML file containing all HTML, CSS, and JavaScript
-- Use IIFE module pattern to wrap entire game logic
-- Import dependencies via ES6 modules from CDN only
-- Maintain 4-space indentation consistently
-- Use `const` for immutable references, `let` for variables
+- **Single file only**: All code must live in `index.html` - HTML, CSS, and JavaScript combined
+- **IIFE module pattern**: Wrap entire game logic to avoid global pollution
+- **CDN imports only**: Use ES6 modules from CDN, no build system or local dependencies
+- **4-space indentation**: Maintain consistently throughout all code sections
 
-## Logging Standards
+## Code Style Standards
 
-- Use `debugLog()`, `debugWarn()`, `debugError()` for conditional logging
-- Prefix physics bodies with descriptive names for debugging
-- Group related functionality with clear comment sections
+- Use `const` for immutable references, `let` for mutable variables
+- Prefix physics bodies with descriptive names for debugging (e.g., `ball_`, `obstacle_`)
+- Group related functionality with clear comment section headers
+- Use conditional logging functions: `debugLog()`, `debugWarn()`, `debugError()`
 
 ## Performance Requirements
 
-- Target 60 FPS with fixed timestep physics simulation
-- Use instanced rendering for repeated objects (MAX_INSTANCES = 1000)
-- Implement frustum culling and dynamic object cleanup
-- Activate/deactivate physics bodies based on distance/relevance
+- **60 FPS target**: All features must maintain smooth frame rate
+- **Instanced rendering**: Use for repeated objects (MAX_INSTANCES = 1000)
+- **Dynamic cleanup**: Activate/deactivate physics bodies based on distance/relevance
+- **Fixed timestep**: Physics simulation must use consistent timing
 
-## Development Workflow
+## Code Organization (within index.html)
 
-- Serve locally with static file server (no build process)
-- Debug via browser dev tools and in-game debug toggle
-- Deploy by copying files to static hosting
+1. HTML structure and game UI
+2. CSS styling with responsive design
+3. JavaScript wrapped in IIFE containing:
+   - Initialization (scene, physics, audio)
+   - Game loop with fixed timestep
+   - Input handling (keyboard, touch, gyroscope)
+   - Physics integration
+   - Rendering system
+   - Audio synthesis
 
-## Browser Support
+## Browser Compatibility
 
-- Requires ES6 modules, WebGL, and Web Audio API
-- Optional DeviceOrientationEvent for gyroscope controls
+- Requires ES6 modules, WebGL, and Web Audio API support
+- Optional DeviceOrientationEvent for enhanced mobile controls

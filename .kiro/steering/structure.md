@@ -1,42 +1,41 @@
-# Project Structure
+---
+inclusion: always
+---
 
-## Root Files
-- `index.html` - Main game file containing all HTML, CSS, and JavaScript
-- `README.md` - Basic project description and attribution
+# Project Structure & Architecture
 
-## Key Directories
-- `.git/` - Git version control
-- `.github/` - GitHub workflows and templates
-- `.kiro/` - Kiro AI assistant configuration and steering rules
-- `.vite/` - Vite development server cache (empty, no build system used)
-- `.vscode/` - VS Code workspace settings
+## Single-File Architecture
+
+- **MANDATORY**: All game code lives in `index.html` - HTML, CSS, and JavaScript combined
+- **NO BUILD SYSTEM**: Import dependencies via ES6 modules from CDN only
+- Use IIFE module pattern to wrap entire game logic
 
 ## Code Organization (within index.html)
 
-### HTML Structure
-- Game UI elements (size, speed, progress indicators)
-- Loading overlay and message overlays
-- Control instructions and buttons
+### Required Structure Order
 
-### CSS Styling
-- Responsive design for mobile and desktop
-- Game UI positioning and styling
-- Animation keyframes for visual effects
-- Touch-friendly button styling
+1. **HTML** - Game UI, overlays, control instructions
+2. **CSS** - Responsive styling, animations, touch-friendly buttons
+3. **JavaScript** - IIFE-wrapped game logic with these sections:
+   - Initialization (scene, physics, audio setup)
+   - Game loop (fixed timestep)
+   - Input handling (keyboard, touch, gyroscope)
+   - Physics integration (Cannon-ES)
+   - Rendering (Three.js with instancing)
+   - Audio system (Tone.js synthesizers)
 
-### JavaScript Architecture
-- **IIFE Module Pattern** - Entire game wrapped in immediately invoked function
-- **Initialization** - Scene, physics, audio setup
-- **Game Loop** - Fixed timestep animation loop
-- **Input Handling** - Keyboard, touch, gyroscope event listeners
-- **Physics Integration** - Cannon-ES world simulation
-- **Rendering** - Three.js scene rendering with instanced meshes
-- **Audio System** - Tone.js synthesizers for dynamic sound effects
+## Mandatory Code Conventions
 
-## Code Conventions
-- Use `debugLog`, `debugWarn`, `debugError` for conditional logging
-- Prefix physics bodies with descriptive names
-- Group related functionality in logical sections with comments
-- Use `const` for immutable references, `let` for variables
-- Maintain consistent indentation (4 spaces)
-- Use descriptive variable names for game state
+- **Indentation**: 4 spaces consistently
+- **Variables**: `const` for immutable, `let` for mutable
+- **Logging**: Use `debugLog()`, `debugWarn()`, `debugError()` only
+- **Physics naming**: Prefix bodies with descriptive names for debugging
+- **Comments**: Group related functionality with clear section headers
+- **Performance**: Always consider 60 FPS impact when adding features
+
+## Architecture Patterns
+
+- **Module isolation**: Wrap all game code in IIFE to avoid global pollution
+- **State management**: Use descriptive variable names for game state
+- **Event handling**: Centralized input system supporting desktop and mobile
+- **Resource management**: Dynamic cleanup of distant objects and physics bodies
