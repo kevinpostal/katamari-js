@@ -1,5 +1,5 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+# Build and deploy production build to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   # Runs on pushes targeting the default branch
@@ -9,35 +9,199 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# Sets minimal required permissions of the GITHUB_TOKEN for secure GitHub Pages deployment
+# contents: read - Required to checkout repository code
+# pages: write - Required to deploy to GitHub Pages
+# id-token: write - Required for OIDC authentication with GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# Concurrency control to handle multiple deployment attempts safely
+# - Groups deployments under "pages" to prevent conflicts
+# - Queues new deployments instead of canceling in-progress ones
+# - Ensures production deployments complete successfully
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
+  # Build and deploy job with security-focused configuration
+  build-and-deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    # Additional security: Ensure job only runs on main branch for push events
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Security: Only fetch the specific commit, not full history
+          fetch-depth: 1
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          echo "Installing dependencies..."
+          npm ci
+          INSTALL_EXIT_CODE=$?
+          if [ $INSTALL_EXIT_CODE -ne 0 ]; then
+            echo "❌ Dependency installation failed with exit code $INSTALL_EXIT_CODE"
+            echo "Please check package.json and package-lock.json for issues"
+            exit $INSTALL_EXIT_CODE
+          fi
+          echo "✅ Dependencies installed successfully"
+        
+      - name: Build production assets
+        run: |
+          echo "Starting production build..."
+          npm run build
+          BUILD_EXIT_CODE=$?
+          if [ $BUILD_EXIT_CODE -ne 0 ]; then
+            echo "❌ Build failed with exit code $BUILD_EXIT_CODE"
+            echo "Build process encountered errors and cannot proceed with deployment"
+            exit $BUILD_EXIT_CODE
+          fi
+          echo "✅ Build completed successfully"
+        
+      - name: Validate build output
+        run: |
+          echo "Validating build output..."
+          
+          # Check if dist folder exists
+          if [ ! -d "dist" ]; then
+            echo "❌ Error: dist folder not found after build"
+            echo "The build process should create a 'dist' directory with production assets"
+            exit 1
+          fi
+          echo "✅ dist folder exists"
+          
+          # Check if index.html exists
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ Error: index.html not found in dist folder"
+            echo "The main entry point file is missing from the build output"
+            exit 1
+          fi
+          echo "✅ index.html found"
+          
+          # Check if dist folder is not empty
+          if [ -z "$(ls -A dist)" ]; then
+            echo "❌ Error: dist folder is empty"
+            echo "Build process completed but produced no output files"
+            exit 1
+          fi
+          echo "✅ dist folder contains files"
+          
+          # Verify index.html has content
+          if [ ! -s "dist/index.html" ]; then
+            echo "❌ Error: index.html is empty"
+            echo "The main entry point file exists but has no content"
+            exit 1
+          fi
+          echo "✅ index.html has content"
+          
+          # Display build output summary
+          echo "📊 Build output summary:"
+          echo "Total files in dist: $(find dist -type f | wc -l)"
+          echo "Total size: $(du -sh dist | cut -f1)"
+          echo ""
+          echo "📁 Build contents:"
+          ls -la dist/
+          
+          # Check for common expected files/folders
+          if [ -d "dist/assets" ]; then
+            echo "✅ assets folder found ($(find dist/assets -type f | wc -l) files)"
+          else
+            echo "⚠️  Warning: No assets folder found - this may be expected for simple builds"
+          fi
+          
+          echo "✅ Build validation completed successfully"
+          
+      - name: Security validation
+        run: |
+          echo "🔒 Performing security validation..."
+          
+          # Ensure no source code files are in dist
+          if find dist -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.vue" -o -name "*.svelte" | grep -q .; then
+            echo "❌ Security Error: Source code files found in dist folder"
+            echo "Only built static files should be deployed to GitHub Pages"
+            find dist -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.vue" -o -name "*.svelte"
+            exit 1
+          fi
+          echo "✅ No source code files found in dist"
+          
+          # Ensure no sensitive files are in dist
+          if find dist -name ".env*" -o -name "*.key" -o -name "*.pem" -o -name "*.p12" -o -name "config.json" | grep -q .; then
+            echo "❌ Security Error: Sensitive files found in dist folder"
+            echo "Configuration and key files should not be deployed"
+            find dist -name ".env*" -o -name "*.key" -o -name "*.pem" -o -name "*.p12" -o -name "config.json"
+            exit 1
+          fi
+          echo "✅ No sensitive files found in dist"
+          
+          # Ensure no development dependencies are in dist
+          if find dist -name "node_modules" -o -name "package.json" -o -name "package-lock.json" | grep -q .; then
+            echo "❌ Security Error: Development files found in dist folder"
+            echo "Only production build artifacts should be deployed"
+            find dist -name "node_modules" -o -name "package.json" -o -name "package-lock.json"
+            exit 1
+          fi
+          echo "✅ No development files found in dist"
+          
+          echo "🔒 Security validation completed successfully"
+          
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # Security: Enable token authentication for Pages
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Security: Only enable static site generator detection
+          enablement: true
+        
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          # Security: Upload only the dist folder contents (no source code)
+          path: './dist'
+          # Security: Set retention period for artifacts
+          retention-days: 1
+        continue-on-error: false
+        
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Security: Use OIDC token for authentication
+          token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: false
+        
+      - name: Verify deployment
+        if: success()
+        run: |
+          echo "🚀 Deployment completed successfully!"
+          echo "Site URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "Deployment ID: ${{ steps.deployment.outputs.deployment_id }}"
+          
+      - name: Handle deployment failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Please check the following:"
+          echo "1. GitHub Pages is enabled in repository settings"
+          echo "2. Repository has proper permissions for Pages deployment"
+          echo "3. Build artifacts were created successfully"
+          echo "4. No conflicting deployments are in progress"
+          echo ""
+          echo "You can retry the deployment by:"
+          echo "- Re-running this workflow"
+          echo "- Pushing a new commit to trigger automatic deployment"
+          echo "- Checking repository settings under Pages section"
+          exit 1
