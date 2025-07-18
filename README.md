@@ -8,6 +8,8 @@ A browser-based 3D physics game inspired by Katamari Damacy, built with modern w
 
 Simply open `index.html` in your browser or visit the [live demo](#) to start playing immediately!
 
+<!-- Test deployment workflow - manual trigger test -->
+
 ## ✨ Features
 
 ### Core Gameplay
