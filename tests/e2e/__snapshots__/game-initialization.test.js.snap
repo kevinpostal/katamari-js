@@ -1,0 +1,579 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Game Initialization Snapshots > Default Game Settings Snapshots > should match default game constants snapshot > default-game-constants 1`] = `
+{
+  "AUDIO": {
+    "AMBIENT_VOLUME": 0.5,
+    "COLLECTION_SOUND_VARIATION": 0.3,
+    "MASTER_VOLUME": 0.7,
+    "SFX_VOLUME": 0.8,
+  },
+  "CONTROLS": {
+    "GYRO_SENSITIVITY": 0.5,
+    "KEYBOARD_SENSITIVITY": 1,
+    "MOVEMENT_DAMPING": 0.9,
+    "TOUCH_SENSITIVITY": 0.8,
+  },
+  "GAMEPLAY": {
+    "COLLECTION_THRESHOLD": 0.8,
+    "INITIAL_KATAMARI_SIZE": 1,
+    "LEVEL_PROGRESSION_MULTIPLIER": 2,
+    "MAX_ITEMS_PER_LEVEL": 500,
+    "SIZE_GROWTH_FACTOR": 0.1,
+  },
+  "PHYSICS": {
+    "GRAVITY": -9.82,
+    "ITEM_FRICTION": 0.3,
+    "ITEM_RESTITUTION": 0.3,
+    "KATAMARI_FRICTION": 0.4,
+    "KATAMARI_RESTITUTION": 0.3,
+    "MAX_SUBSTEPS": 3,
+    "TIMESTEP": 0.016666666666666666,
+  },
+  "RENDERING": {
+    "FAR_PLANE": 1000,
+    "FOV": 75,
+    "FRUSTUM_CULLING": true,
+    "MAX_INSTANCES": 1000,
+    "NEAR_PLANE": 0.1,
+    "SHADOW_MAP_SIZE": 2048,
+  },
+}
+`;
+
+exports[`Game Initialization Snapshots > Default Game Settings Snapshots > should match default input configuration snapshot > default-input-configuration 1`] = `
+{
+  "gamepad": {
+    "buttonMapping": {
+      "debug": 8,
+      "pause": 9,
+    },
+    "deadzone": 0.2,
+    "enabled": true,
+    "sensitivity": 1,
+  },
+  "gyroscope": {
+    "calibration": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+    },
+    "deadzone": 0.2,
+    "enabled": false,
+    "sensitivity": 0.5,
+    "smoothing": 0.8,
+  },
+  "keyboard": {
+    "deadzone": 0.1,
+    "enabled": true,
+    "keys": {
+      "backward": [
+        "KeyS",
+        "ArrowDown",
+      ],
+      "debug": [
+        "KeyF1",
+      ],
+      "forward": [
+        "KeyW",
+        "ArrowUp",
+      ],
+      "left": [
+        "KeyA",
+        "ArrowLeft",
+      ],
+      "pause": [
+        "Space",
+        "Escape",
+      ],
+      "right": [
+        "KeyD",
+        "ArrowRight",
+      ],
+    },
+    "sensitivity": 1,
+  },
+  "touch": {
+    "deadzone": 0.15,
+    "enabled": true,
+    "maxDistance": 100,
+    "sensitivity": 0.8,
+    "visualFeedback": true,
+  },
+}
+`;
+
+exports[`Game Initialization Snapshots > Default Game Settings Snapshots > should match default level configuration snapshot > default-level-configuration 1`] = `
+{
+  "currentLevel": 1,
+  "itemsGenerated": 0,
+  "progression": {
+    "itemCountMultipliers": [
+      1,
+      1.5,
+      2.25,
+      3.375,
+      5.0625,
+    ],
+    "levelThresholds": [
+      10,
+      25,
+      62.5,
+      156.25,
+      390.625,
+    ],
+    "sizeMultipliers": [
+      1,
+      2.5,
+      6.25,
+      15.625,
+      39.0625,
+    ],
+  },
+  "targetSize": 10,
+  "theme": "earth",
+  "themes": {
+    "earth": {
+      "backgroundColor": 8900331,
+      "fogColor": 8900331,
+      "fogFar": 200,
+      "fogNear": 50,
+      "itemColors": [
+        2263842,
+        9127187,
+        6908265,
+        16738740,
+        14596231,
+      ],
+      "itemDensity": 0.8,
+      "itemSizes": [
+        0.1,
+        0.2,
+        0.3,
+        0.15,
+        0.25,
+      ],
+      "items": [
+        "leaf",
+        "stick",
+        "rock",
+        "flower",
+        "mushroom",
+      ],
+      "name": "Earth",
+      "spawnRadius": 50,
+    },
+    "space": {
+      "backgroundColor": 17,
+      "fogColor": 17,
+      "fogFar": 500,
+      "fogNear": 100,
+      "itemColors": [
+        6908265,
+        12632256,
+        4286945,
+        16776960,
+        9662683,
+      ],
+      "itemDensity": 0.5,
+      "itemSizes": [
+        0.5,
+        1,
+        5,
+        0.3,
+        20,
+      ],
+      "items": [
+        "asteroid",
+        "satellite",
+        "planet",
+        "star",
+        "galaxy",
+      ],
+      "name": "Space",
+      "spawnRadius": 100,
+    },
+    "urban": {
+      "backgroundColor": 7372944,
+      "fogColor": 7372944,
+      "fogFar": 150,
+      "fogNear": 30,
+      "itemColors": [
+        16766720,
+        12632256,
+        128,
+        9127187,
+        6636321,
+      ],
+      "itemDensity": 1,
+      "itemSizes": [
+        0.05,
+        0.08,
+        0.12,
+        0.4,
+        0.8,
+      ],
+      "items": [
+        "coin",
+        "paperclip",
+        "pen",
+        "book",
+        "chair",
+      ],
+      "name": "Urban",
+      "spawnRadius": 40,
+    },
+  },
+}
+`;
+
+exports[`Game Initialization Snapshots > Game Environment Initialization Snapshots > should match complete game environment initialization snapshot > complete-game-environment-initialization 1`] = `
+{
+  "audio": {
+    "context": null,
+    "effects": {},
+    "initialized": false,
+    "synthesizers": {},
+  },
+  "camera": {
+    "aspect": 1.3333333333333333,
+    "far": 1000,
+    "fov": 75,
+    "near": 0.1,
+    "position": {
+      "x": 0,
+      "y": 5,
+      "z": 10,
+    },
+    "target": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+    },
+    "type": "PerspectiveCamera",
+  },
+  "gameState": {
+    "katamari": {
+      "collectedItems": 0,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+      },
+      "size": 1,
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+      },
+    },
+    "level": {
+      "currentLevel": 1,
+      "itemsGenerated": 0,
+      "targetSize": 10,
+      "theme": "earth",
+    },
+    "physics": {
+      "activeCollisions": 0,
+      "bodyCount": 0,
+      "worldCreated": false,
+    },
+    "scene": {
+      "initialized": false,
+      "lightingSetup": false,
+      "objectCount": 0,
+    },
+  },
+  "physics": {
+    "materials": {
+      "ground": {
+        "friction": 0.8,
+        "restitution": 0.1,
+      },
+      "item": {
+        "friction": 0.3,
+        "restitution": 0.3,
+      },
+      "katamari": {
+        "friction": 0.4,
+        "restitution": 0.3,
+      },
+    },
+    "world": {
+      "broadphase": "NaiveBroadphase",
+      "gravity": {
+        "x": 0,
+        "y": -9.82,
+        "z": 0,
+      },
+      "solver": {
+        "iterations": 10,
+        "tolerance": 0.0001,
+      },
+    },
+  },
+  "renderer": {
+    "antialias": true,
+    "outputEncoding": "sRGBEncoding",
+    "shadowMap": {
+      "enabled": true,
+      "type": "PCFSoftShadowMap",
+    },
+    "toneMapping": "ACESFilmicToneMapping",
+    "toneMappingExposure": 1,
+    "type": "WebGLRenderer",
+  },
+  "scene": {
+    "autoUpdate": true,
+    "background": null,
+    "children": [],
+    "fog": null,
+    "overrideMaterial": null,
+    "type": "Scene",
+  },
+}
+`;
+
+exports[`Game Initialization Snapshots > Game Environment Initialization Snapshots > should match performance monitoring initialization snapshot > performance-monitoring-initialization 1`] = `
+{
+  "metrics": {
+    "frameRate": {
+      "average": 0,
+      "current": 0,
+      "history": [],
+      "maximum": 0,
+      "minimum": Infinity,
+    },
+    "memory": {
+      "arrayBuffers": 0,
+      "external": 0,
+      "heapTotal": 0,
+      "heapUsed": 0,
+      "history": [],
+    },
+    "timing": {
+      "history": [],
+      "physicsStep": 0,
+      "renderTime": 0,
+      "totalFrameTime": 0,
+      "updateTime": 0,
+    },
+  },
+  "monitoring": {
+    "enabled": true,
+    "historyLength": 300,
+    "sampleRate": 60,
+    "thresholds": {
+      "frameRate": {
+        "critical": 30,
+        "minimum": 55,
+        "target": 60,
+        "warning": 50,
+      },
+      "memory": {
+        "heapCritical": 209715200,
+        "heapWarning": 104857600,
+        "leakDetection": true,
+      },
+      "physics": {
+        "stepTimeCritical": 10,
+        "stepTimeWarning": 5,
+      },
+      "rendering": {
+        "drawCallCritical": 2000,
+        "drawCallWarning": 1000,
+        "triangleCritical": 500000,
+        "triangleWarning": 100000,
+      },
+    },
+  },
+}
+`;
+
+exports[`Game Initialization Snapshots > Initial Game State Snapshots > should match initial audio system configuration snapshot > initial-audio-configuration 1`] = `
+{
+  "context": {
+    "destination": "speakers",
+    "sampleRate": 44100,
+    "state": "suspended",
+  },
+  "effects": {
+    "filter": {
+      "frequency": 350,
+      "type": "lowpass",
+    },
+    "reverb": {
+      "dampening": 3000,
+      "roomSize": 0.7,
+    },
+  },
+  "synthesizers": {
+    "basic": {
+      "envelope": {
+        "attack": 0.005,
+        "decay": 0.1,
+        "release": 1,
+        "sustain": 0.3,
+      },
+      "oscillator": {
+        "type": "triangle",
+      },
+      "type": "Synth",
+      "volume": -15,
+    },
+    "membrane": {
+      "envelope": {
+        "attack": 0.001,
+        "decay": 0.4,
+        "release": 1.4,
+        "sustain": 0.01,
+      },
+      "octaves": 10,
+      "oscillator": {
+        "type": "sine",
+      },
+      "type": "MembraneSynth",
+      "volume": -12,
+    },
+    "noise": {
+      "envelope": {
+        "attack": 0.005,
+        "decay": 0.1,
+        "sustain": 0,
+      },
+      "noise": {
+        "type": "white",
+      },
+      "type": "NoiseSynth",
+      "volume": -20,
+    },
+  },
+}
+`;
+
+exports[`Game Initialization Snapshots > Initial Game State Snapshots > should match initial game state snapshot > initial-game-state 1`] = `
+{
+  "katamari": {
+    "collectedItems": 0,
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+    },
+    "size": 1,
+    "velocity": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+    },
+  },
+  "level": {
+    "currentLevel": 1,
+    "itemsGenerated": 0,
+    "targetSize": 10,
+    "theme": "earth",
+  },
+  "physics": {
+    "activeCollisions": 0,
+    "bodyCount": 0,
+    "worldCreated": false,
+  },
+  "scene": {
+    "initialized": false,
+    "lightingSetup": false,
+    "objectCount": 0,
+  },
+}
+`;
+
+exports[`Game Initialization Snapshots > Initial Game State Snapshots > should match initial katamari configuration snapshot > initial-katamari-configuration 1`] = `
+{
+  "collectedItems": 0,
+  "geometry": {
+    "heightSegments": 16,
+    "radius": 1,
+    "type": "SphereGeometry",
+    "widthSegments": 32,
+  },
+  "mass": 1,
+  "material": {
+    "friction": 0.4,
+    "restitution": 0.3,
+  },
+  "position": {
+    "x": 0,
+    "y": 0,
+    "z": 0,
+  },
+  "size": 1,
+  "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0,
+  },
+  "visual": {
+    "castShadow": true,
+    "color": 65280,
+    "metalness": 0.1,
+    "receiveShadow": true,
+    "roughness": 0.7,
+  },
+}
+`;
+
+exports[`Game Initialization Snapshots > Initial Game State Snapshots > should match initial physics world configuration snapshot > initial-physics-configuration 1`] = `
+{
+  "activeCollisions": 0,
+  "bodies": [],
+  "bodyCount": 0,
+  "broadphase": "NaiveBroadphase",
+  "contactMaterial": {
+    "contactEquationRelaxation": 3,
+    "contactEquationStiffness": 100000000,
+    "friction": 0.3,
+    "restitution": 0.3,
+  },
+  "gravity": {
+    "x": 0,
+    "y": -9.82,
+    "z": 0,
+  },
+  "solver": {
+    "iterations": 10,
+    "tolerance": 0.0001,
+  },
+  "worldCreated": false,
+}
+`;
+
+exports[`Game Initialization Snapshots > Initial Game State Snapshots > should match initial scene configuration snapshot > initial-scene-configuration 1`] = `
+{
+  "background": null,
+  "children": [],
+  "fog": null,
+  "initialized": false,
+  "lighting": {
+    "ambient": {
+      "color": 4210752,
+      "intensity": 0.4,
+    },
+    "directional": {
+      "castShadow": true,
+      "color": 16777215,
+      "intensity": 1,
+      "position": {
+        "x": 10,
+        "y": 10,
+        "z": 5,
+      },
+    },
+    "hemisphere": {
+      "groundColor": 3550493,
+      "intensity": 0.6,
+      "skyColor": 8900331,
+    },
+  },
+  "lightingSetup": false,
+  "objectCount": 0,
+}
+`;

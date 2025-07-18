@@ -1,0 +1,541 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`UI Rendering Snapshots > Game UI Structure Snapshots > should match HUD elements structure snapshot > hud-elements-structure 1`] = `
+{
+  "fps": {
+    "defaultValue": "--",
+    "element": "span",
+    "format": "integer or placeholder",
+    "id": "fps",
+    "parent": "game-ui",
+  },
+  "itemsCollected": {
+    "defaultValue": "0",
+    "element": "span",
+    "format": "integer",
+    "id": "items-collected",
+    "parent": "game-ui",
+  },
+  "katamariSize": {
+    "defaultValue": "2.00m",
+    "element": "span",
+    "format": "decimal with unit",
+    "id": "katamari-size",
+    "parent": "game-ui",
+  },
+  "katamariSpeed": {
+    "defaultValue": "0.00m/s",
+    "element": "span",
+    "format": "decimal with unit",
+    "id": "katamari-speed",
+    "parent": "game-ui",
+  },
+  "targetSize": {
+    "defaultValue": "100.00m",
+    "element": "span",
+    "format": "decimal with unit",
+    "id": "target-size",
+    "parent": "game-ui",
+  },
+}
+`;
+
+exports[`UI Rendering Snapshots > Game UI Structure Snapshots > should match complete game UI DOM structure snapshot > complete-game-ui-structure 1`] = `
+{
+  "children": [
+    {
+      "children": [
+        {
+          "className": null,
+          "id": "katamari-size",
+          "tagName": "SPAN",
+          "textContent": "2.00m",
+        },
+      ],
+      "className": null,
+      "id": null,
+      "tagName": "DIV",
+      "textContent": "Size: 2.00m",
+    },
+    {
+      "children": [
+        {
+          "className": null,
+          "id": "katamari-speed",
+          "tagName": "SPAN",
+          "textContent": "0.00m/s",
+        },
+      ],
+      "className": null,
+      "id": null,
+      "tagName": "DIV",
+      "textContent": "Speed: 0.00m/s",
+    },
+    {
+      "children": [
+        {
+          "className": null,
+          "id": "items-collected",
+          "tagName": "SPAN",
+          "textContent": "0",
+        },
+      ],
+      "className": null,
+      "id": null,
+      "tagName": "DIV",
+      "textContent": "Items Collected: 0",
+    },
+    {
+      "children": [
+        {
+          "className": null,
+          "id": "fps",
+          "tagName": "SPAN",
+          "textContent": "--",
+        },
+      ],
+      "className": null,
+      "id": null,
+      "tagName": "DIV",
+      "textContent": "FPS: --",
+    },
+    {
+      "children": [
+        {
+          "className": null,
+          "id": "progress-bar",
+          "tagName": "DIV",
+          "textContent": "",
+        },
+      ],
+      "className": null,
+      "id": "progress-container",
+      "tagName": "DIV",
+      "textContent": "",
+    },
+    {
+      "children": [
+        {
+          "className": null,
+          "id": "target-size",
+          "tagName": "SPAN",
+          "textContent": "100.00m",
+        },
+      ],
+      "className": null,
+      "id": null,
+      "tagName": "DIV",
+      "textContent": "Target Size: 100.00m",
+    },
+    {
+      "children": [],
+      "className": null,
+      "id": "power-up-status",
+      "tagName": "DIV",
+      "textContent": "",
+    },
+    {
+      "children": [],
+      "className": null,
+      "id": "gyro-button",
+      "tagName": "BUTTON",
+      "textContent": "Toggle Gyro",
+    },
+    {
+      "children": [],
+      "className": null,
+      "id": "debug-button",
+      "tagName": "BUTTON",
+      "textContent": "Toggle Debug",
+    },
+  ],
+  "id": "game-ui",
+  "tagName": "DIV",
+}
+`;
+
+exports[`UI Rendering Snapshots > Game UI Structure Snapshots > should match control buttons structure snapshot > control-buttons-structure 1`] = `
+{
+  "debugButton": {
+    "defaultText": "Toggle Debug",
+    "id": "debug-button",
+    "parent": "game-ui",
+    "tagName": "BUTTON",
+    "type": "submit",
+  },
+  "gyroButton": {
+    "defaultText": "Toggle Gyro",
+    "id": "gyro-button",
+    "parent": "game-ui",
+    "tagName": "BUTTON",
+    "type": "submit",
+  },
+}
+`;
+
+exports[`UI Rendering Snapshots > Game UI Structure Snapshots > should match power-up status structure snapshot > power-up-status-structure 1`] = `
+{
+  "id": "power-up-status",
+  "initialContent": "",
+  "isEmpty": true,
+  "parent": "game-ui",
+  "tagName": "DIV",
+}
+`;
+
+exports[`UI Rendering Snapshots > Game UI Structure Snapshots > should match progress bar structure snapshot > progress-bar-structure 1`] = `
+{
+  "bar": {
+    "id": "progress-bar",
+    "initialWidth": "0%",
+    "parent": "progress-container",
+    "tagName": "DIV",
+  },
+  "container": {
+    "children": 1,
+    "id": "progress-container",
+    "tagName": "DIV",
+  },
+}
+`;
+
+exports[`UI Rendering Snapshots > Overlay Structure Snapshots > should match controls info structure snapshot > controls-info-structure 1`] = `
+{
+  "children": [
+    {
+      "hasFormattedText": true,
+      "tagName": "P",
+      "textContent": "Use W, A, S, D or Arrow Keys to move the Katamari.",
+    },
+    {
+      "hasFormattedText": true,
+      "tagName": "P",
+      "textContent": "Swipe on screen for precise mobile control.",
+    },
+    {
+      "hasFormattedText": true,
+      "tagName": "P",
+      "textContent": "Toggle Gyro for tilt-based movement on supported devices.",
+    },
+    {
+      "hasFormattedText": true,
+      "tagName": "P",
+      "textContent": "Press R to reset Katamari position. Press Space to generate a new world.",
+    },
+  ],
+  "id": "controls-info",
+  "parent": "body",
+  "tagName": "DIV",
+}
+`;
+
+exports[`UI Rendering Snapshots > Overlay Structure Snapshots > should match loading overlay structure snapshot > loading-overlay-structure 1`] = `
+{
+  "defaultText": "Generating a new universe... ✨",
+  "id": "loading-overlay",
+  "initialDisplay": "block",
+  "parent": "body",
+  "tagName": "DIV",
+}
+`;
+
+exports[`UI Rendering Snapshots > Overlay Structure Snapshots > should match message overlay structure snapshot > message-overlay-structure 1`] = `
+{
+  "id": "message-overlay",
+  "initialContent": "",
+  "initialDisplay": "none",
+  "isEmpty": true,
+  "parent": "body",
+  "tagName": "DIV",
+}
+`;
+
+exports[`UI Rendering Snapshots > Responsive UI Structure Snapshots > should match desktop UI layout considerations snapshot > desktop-ui-layout-considerations 1`] = `
+{
+  "debugFeatures": {
+    "debugButtonAvailable": true,
+    "fpsDisplayAvailable": true,
+  },
+  "keyboardControls": {
+    "includesArrowKeyInstructions": true,
+    "includesSpacebarInstructions": true,
+    "includesWASDInstructions": true,
+  },
+  "viewport": {
+    "height": 1080,
+    "isDesktop": true,
+    "width": 1920,
+  },
+}
+`;
+
+exports[`UI Rendering Snapshots > Responsive UI Structure Snapshots > should match mobile UI layout considerations snapshot > mobile-ui-layout-considerations 1`] = `
+{
+  "controlsInfo": {
+    "includesGyroInstructions": true,
+    "includesTouchInstructions": true,
+  },
+  "touchFriendlyElements": {
+    "debugButton": {
+      "id": "debug-button",
+      "isTouchTarget": true,
+      "minTouchSize": "44px",
+    },
+    "gyroButton": {
+      "id": "gyro-button",
+      "isTouchTarget": true,
+      "minTouchSize": "44px",
+    },
+  },
+  "viewport": {
+    "height": 667,
+    "isMobile": true,
+    "width": 375,
+  },
+}
+`;
+
+exports[`UI Rendering Snapshots > UI Accessibility Structure Snapshots > should match UI accessibility features snapshot > ui-accessibility-features 1`] = `
+{
+  "interactiveElements": {
+    "buttons": [
+      {
+        "hasAccessibleName": true,
+        "id": "gyro-button",
+        "text": "Toggle Gyro",
+      },
+      {
+        "hasAccessibleName": true,
+        "id": "debug-button",
+        "text": "Toggle Debug",
+      },
+    ],
+    "clickableOverlays": [
+      {
+        "id": "loading-overlay",
+        "isClickable": false,
+      },
+      {
+        "id": "message-overlay",
+        "isClickable": true,
+      },
+    ],
+  },
+  "semanticStructure": {
+    "hasControlsInfo": true,
+    "hasMainGameUI": true,
+    "hasProgressIndicator": true,
+  },
+  "textContent": {
+    "hasFormattedInstructions": true,
+    "hasInstructionalText": true,
+    "providesMultipleInputMethods": true,
+  },
+}
+`;
+
+exports[`UI Rendering Snapshots > UI Accessibility Structure Snapshots > should match UI element hierarchy snapshot > ui-element-hierarchy 1`] = `
+{
+  "body": {
+    "children": [
+      {
+        "childCount": 0,
+        "hasChildren": false,
+        "id": "loading-overlay",
+        "role": null,
+        "tagName": "DIV",
+      },
+      {
+        "childCount": 9,
+        "hasChildren": true,
+        "id": "game-ui",
+        "role": null,
+        "tagName": "DIV",
+      },
+      {
+        "childCount": 4,
+        "hasChildren": true,
+        "id": "controls-info",
+        "role": null,
+        "tagName": "DIV",
+      },
+      {
+        "childCount": 0,
+        "hasChildren": false,
+        "id": "message-overlay",
+        "role": null,
+        "tagName": "DIV",
+      },
+    ],
+  },
+  "gameUI": {
+    "children": [
+      {
+        "hasText": true,
+        "id": null,
+        "isInteractive": false,
+        "tagName": "DIV",
+      },
+      {
+        "hasText": true,
+        "id": null,
+        "isInteractive": false,
+        "tagName": "DIV",
+      },
+      {
+        "hasText": true,
+        "id": null,
+        "isInteractive": false,
+        "tagName": "DIV",
+      },
+      {
+        "hasText": true,
+        "id": null,
+        "isInteractive": false,
+        "tagName": "DIV",
+      },
+      {
+        "hasText": false,
+        "id": "progress-container",
+        "isInteractive": false,
+        "tagName": "DIV",
+      },
+      {
+        "hasText": true,
+        "id": null,
+        "isInteractive": false,
+        "tagName": "DIV",
+      },
+      {
+        "hasText": false,
+        "id": "power-up-status",
+        "isInteractive": false,
+        "tagName": "DIV",
+      },
+      {
+        "hasText": true,
+        "id": "gyro-button",
+        "isInteractive": true,
+        "tagName": "BUTTON",
+      },
+      {
+        "hasText": true,
+        "id": "debug-button",
+        "isInteractive": true,
+        "tagName": "BUTTON",
+      },
+    ],
+    "parent": "body",
+  },
+}
+`;
+
+exports[`UI Rendering Snapshots > UI Performance Structure Snapshots > should match UI update performance considerations snapshot > ui-performance-considerations 1`] = `
+{
+  "frequentlyUpdatedElements": {
+    "fps": {
+      "id": "fps",
+      "isTextContent": true,
+      "parentCaching": "recommended",
+      "updateFrequency": "every second",
+    },
+    "katamariSize": {
+      "id": "katamari-size",
+      "isTextContent": true,
+      "parentCaching": "recommended",
+      "updateFrequency": "every frame",
+    },
+    "katamariSpeed": {
+      "id": "katamari-speed",
+      "isTextContent": true,
+      "parentCaching": "recommended",
+      "updateFrequency": "every frame",
+    },
+    "progressBar": {
+      "id": "progress-bar",
+      "isStyleUpdate": true,
+      "property": "width",
+      "updateFrequency": "on size change",
+    },
+  },
+  "overlayElements": {
+    "loadingOverlay": {
+      "displayToggle": true,
+      "id": "loading-overlay",
+      "updateFrequency": "on state change",
+    },
+    "messageOverlay": {
+      "contentUpdate": true,
+      "displayToggle": true,
+      "id": "message-overlay",
+      "updateFrequency": "on game events",
+    },
+  },
+  "staticElements": {
+    "controlsInfo": {
+      "cacheable": true,
+      "id": "controls-info",
+      "updateFrequency": "never",
+    },
+    "targetSize": {
+      "cacheable": true,
+      "id": "target-size",
+      "updateFrequency": "on level change",
+    },
+  },
+}
+`;
+
+exports[`UI Rendering Snapshots > UI State Variations Snapshots > should match UI with active power-ups snapshot > ui-with-active-power-ups 1`] = `
+{
+  "hasActivePowerUps": true,
+  "powerUpContent": "<div class="power-up">Speed Boost: 4.2s</div>
+                <div class="power-up">Magnet: 2.8s</div>",
+  "powerUpCount": 2,
+}
+`;
+
+exports[`UI Rendering Snapshots > UI State Variations Snapshots > should match UI with button states snapshot > ui-with-active-buttons 1`] = `
+{
+  "debugButton": {
+    "classList": [
+      "active",
+    ],
+    "isActive": true,
+    "text": "Debug ON",
+  },
+  "gyroButton": {
+    "classList": [
+      "active",
+    ],
+    "isActive": true,
+    "text": "Gyro ON",
+  },
+}
+`;
+
+exports[`UI Rendering Snapshots > UI State Variations Snapshots > should match UI with updated game values snapshot > ui-with-game-values 1`] = `
+{
+  "fps": "60",
+  "itemsCollected": "127",
+  "katamariSize": "15.75m",
+  "katamariSpeed": "8.42m/s",
+  "progressWidth": "31.5%",
+  "targetSize": "50.00m",
+}
+`;
+
+exports[`UI Rendering Snapshots > UI State Variations Snapshots > should match UI with visible overlays snapshot > ui-with-visible-overlays 1`] = `
+{
+  "loadingOverlay": {
+    "content": "Generating new world...",
+    "display": "flex",
+    "isVisible": true,
+  },
+  "messageOverlay": {
+    "content": "Level Complete! Well done!",
+    "display": "block",
+    "isVisible": true,
+  },
+}
+`;
