@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Katamari World</title>
+  <script type="module" crossorigin src="/assets/index.BIG_1d0I.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/style.CKerYNLP.css">
+</head>
+<body>
+    <div id="loading-overlay">Generating a new universe... ✨</div>
+    <div id="game-ui">
+        <div>Size: <span id="katamari-size">2.00m</span></div>
+        <div>Speed: <span id="katamari-speed">0.00m/s</span></div>
+        <div>Items Collected: <span id="items-collected">0</span></div>
+        <div>FPS: <span id="fps">--</span></div>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div>Target Size: <span id="target-size">100.00m</span></div>
+        <div id="power-up-status"></div>
+        <button id="gyro-button">Toggle Gyro</button>
+        <button id="debug-button">Toggle Debug</button>
+    </div>
+    <div id="controls-info">
+        <p>Use <b>W, A, S, D</b> or <b>Arrow Keys</b> to move the Katamari.</p>
+        <p><b>Swipe</b> on screen for precise mobile control.</p>
+        <p><b>Toggle Gyro</b> for tilt-based movement on supported devices.</p>
+        <p>Press <b>R</b> to reset Katamari position. Press <b>Space</b> to generate a new world.</p>
+    </div>
+    <div id="message-overlay"></div>
+
+</body>
+</html>
