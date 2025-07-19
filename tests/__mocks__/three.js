@@ -617,7 +617,8 @@ export class Fog {
 // Mock MathUtils
 export const MathUtils = {
     lerp: vi.fn((a, b, t) => a + (b - a) * t),
-    clamp: vi.fn((value, min, max) => Math.max(min, Math.min(max, value)))
+    clamp: vi.fn((value, min, max) => Math.max(min, Math.min(max, value))),
+    degToRad: vi.fn((degrees) => degrees * Math.PI / 180)
 };
 
 // Mock constants

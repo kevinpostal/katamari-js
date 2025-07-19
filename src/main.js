@@ -303,7 +303,7 @@ const gameModule = (function() {
                 updateItemFadeIn();
                 
                 // Generate items dynamically around katamari
-                generateItemsAroundKatamari(katamari.getThreePosition(), getCurrentTheme());
+                generateItemsAroundKatamari(katamari.getThreePosition(), getCurrentTheme(), katamari.radius);
                 
                 // Clean up old items
                 cleanupOldItems(katamari.getThreePosition());

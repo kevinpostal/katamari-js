@@ -230,7 +230,9 @@ describe('Level Management System', () => {
                 200,
                 getCurrentTheme().items,
                 expect.objectContaining({ x: 0, y: 0, z: 0 }),
-                180
+                180,
+                true,
+                10
             );
             expect(resetLastGenerationPosition).toHaveBeenCalledWith(
                 expect.objectContaining({ x: 0, y: 0, z: 0 })

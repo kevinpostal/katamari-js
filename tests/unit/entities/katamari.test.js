@@ -201,14 +201,21 @@ describe('Katamari Entity', () => {
             expect(katamari.itemsCollectedCount).toBe(1);
         });
 
-        it('should calculate new radius based on volume', () => {
+        it('should calculate new radius based on volume with authentic growth formula', () => {
             const initialRadius = 2.0;
             const itemSize = 1.0;
             const volumeContributionFactor = 0.8;
             
             katamari.collectItem(itemSize, volumeContributionFactor);
             
-            const expectedNewVolume = Math.pow(initialRadius, 3) + Math.pow(itemSize, 3) * volumeContributionFactor;
+            // Calculate expected radius using the new authentic formula
+            const itemVolume = Math.pow(itemSize, 3);
+            const katamariVolume = Math.pow(initialRadius, 3);
+            const difficultyScale = Math.max(0.1, 1.0 - (initialRadius * 0.02));
+            const sizeRatio = itemSize / initialRadius;
+            const contributionMultiplier = Math.min(1.0, sizeRatio * 2.0);
+            const volumeContribution = itemVolume * volumeContributionFactor * difficultyScale * contributionMultiplier * 0.3;
+            const expectedNewVolume = katamariVolume + volumeContribution;
             const expectedNewRadius = Math.cbrt(expectedNewVolume);
             
             expect(katamari.targetRadius).toBeCloseTo(expectedNewRadius, 2);
@@ -416,11 +423,13 @@ describe('Katamari Entity', () => {
             expect(position).toBe(mockPosition);
         });
 
-        it('should calculate collection threshold correctly', () => {
+        it('should calculate collection threshold correctly with authentic PlayStation game logic', () => {
             katamari.radius = 2.0;
             
-            expect(katamari.canCollectItem(3.0)).toBe(true); // 2.0 >= 3.0 * 0.5
-            expect(katamari.canCollectItem(5.0)).toBe(false); // 2.0 < 5.0 * 0.5
+            // With new authentic formula: baseThreshold = 1.2, progressiveThreshold = 1.2 + (2.0 * 0.05) = 1.3
+            // So katamari needs to be >= itemSize * 1.3
+            expect(katamari.canCollectItem(1.5)).toBe(true); // 2.0 >= 1.5 * 1.3 (1.95)
+            expect(katamari.canCollectItem(1.6)).toBe(false); // 2.0 < 1.6 * 1.3 (2.08)
         });
 
         it('should calculate attraction range based on radius', () => {

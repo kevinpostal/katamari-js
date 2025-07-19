@@ -414,11 +414,11 @@ export class Katamari {
             if (child.name === 'core') continue;
             
             if (child.userData.isAttachedToKatamari && child.userData.initialLocalPosition) {
-                // Calculate dynamic compression based on current Katamari size
-                const compressionFactor = Math.max(0.4, 1.0 - this.radius * 0.005);
+                // Calculate dynamic compression based on current Katamari size - more aggressive compression
+                const compressionFactor = Math.max(0.3, 1.0 - this.radius * 0.008); // Increased compression rate from 0.005 to 0.008
                 
-                // Calculate tighter positioning as katamari grows
-                const desiredDistance = this.radius + child.userData.initialSize * 0.3 * compressionFactor;
+                // Calculate much tighter positioning as katamari grows - items closer to surface
+                const desiredDistance = this.radius + child.userData.initialSize * 0.15 * compressionFactor; // Reduced from 0.3 to 0.15
                 const direction = child.userData.initialLocalPosition.clone().normalize();
                 const currentLocalPosition = direction.multiplyScalar(desiredDistance);
 
@@ -429,8 +429,8 @@ export class Katamari {
                 // Update position
                 child.position.copy(currentLocalPosition);
 
-                // Apply stronger compression scaling as katamari grows
-                const scale = 0.7 * compressionFactor;
+                // Apply stronger compression scaling as katamari grows, but keep items larger
+                const scale = Math.max(0.6, 0.85 * compressionFactor); // Increased from 0.7 to 0.85, with minimum of 0.6
                 child.scale.set(scale, scale, scale);
 
                 // Make items slowly rotate on their own axis for visual interest
@@ -466,11 +466,27 @@ export class Katamari {
     }
 
     /**
-     * Grow the katamari by collecting an item
+     * Grow the katamari by collecting an item - authentic PlayStation game formula
      */
     collectItem(itemSize, volumeContributionFactor = 0.8) {
         const oldRadius = this.radius;
-        const newVolume = Math.pow(oldRadius, 3) + Math.pow(itemSize, 3) * volumeContributionFactor;
+        
+        // Authentic katamari growth formula with diminishing returns
+        // Small items contribute very little, larger items contribute more but with scaling
+        const itemVolume = Math.pow(itemSize, 3);
+        const katamariVolume = Math.pow(oldRadius, 3);
+        
+        // Progressive difficulty scaling - larger katamari needs more items to grow
+        const difficultyScale = Math.max(0.1, 1.0 - (this.radius * 0.02)); // Reduces contribution as katamari grows
+        
+        // Size-based contribution - smaller items contribute less relative to katamari size
+        const sizeRatio = itemSize / oldRadius;
+        const contributionMultiplier = Math.min(1.0, sizeRatio * 2.0); // Items smaller than half katamari size contribute less
+        
+        // Final volume contribution with authentic scaling
+        const volumeContribution = itemVolume * volumeContributionFactor * difficultyScale * contributionMultiplier * 0.3; // Reduced overall growth rate
+        
+        const newVolume = katamariVolume + volumeContribution;
         const newRadius = Math.cbrt(newVolume);
 
         // Set target radius for smooth animation instead of immediate change
@@ -479,7 +495,7 @@ export class Katamari {
         // Increment collection count
         this.itemsCollectedCount++;
 
-        debugInfo(`Item collected! Target radius: ${this.targetRadius.toFixed(2)}m (current: ${this.radius.toFixed(2)}m), Items collected: ${this.itemsCollectedCount}`);
+        debugInfo(`Item collected! Size: ${itemSize.toFixed(2)}, Contribution: ${(volumeContribution/itemVolume*100).toFixed(1)}%, Target radius: ${this.targetRadius.toFixed(2)}m (current: ${this.radius.toFixed(2)}m), Items: ${this.itemsCollectedCount}`);
     }
 
     /**
@@ -507,10 +523,10 @@ export class Katamari {
         const localDirection = directionFromKatamariCenter.applyQuaternion(this.group.quaternion.clone().invert());
 
         // Calculate compression factor - more compression as katamari grows
-        const compressionFactor = Math.max(0.4, 1.0 - this.radius * 0.005);
+        const compressionFactor = Math.max(0.3, 1.0 - this.radius * 0.008); // Increased compression rate from 0.005 to 0.008
         
-        // Position on surface with proper compression (closer to surface than before)
-        const minOrbitalDistance = this.radius + attachedMesh.userData.size * 0.3 * compressionFactor;
+        // Position on surface with much tighter compression (much closer to surface)
+        const minOrbitalDistance = this.radius + attachedMesh.userData.size * 0.15 * compressionFactor; // Reduced from 0.3 to 0.15
         localDirection.normalize().multiplyScalar(minOrbitalDistance);
 
         // Set the item's initial local position
@@ -523,8 +539,8 @@ export class Katamari {
         attachedMesh.userData.rotationSpeed = (Math.random() * 0.5 + 0.2); // Random speed for individual rotation
         attachedMesh.userData.currentOrbitalAngle = 0; // Initialize orbital angle
 
-        // Apply compression scale to the item for visual effect (like original game)
-        const compressionScale = 0.7 * compressionFactor; // Strong compression
+        // Apply compression scale to the item for visual effect, but keep items larger
+        const compressionScale = Math.max(0.6, 0.85 * compressionFactor); // Increased from 0.7 to 0.85, with minimum of 0.6
         attachedMesh.scale.set(compressionScale, compressionScale, compressionScale);
 
         debugInfo(`Item attached to katamari with compression: scale=${compressionScale.toFixed(2)}, distance=${minOrbitalDistance.toFixed(2)}`);
@@ -712,10 +728,13 @@ export class Katamari {
      * Check if the katamari can collect an item of given size
      */
     canCollectItem(itemSize) {
-        // Much more generous collection threshold - katamari should be able to collect items that are clearly smaller
-        // Using 0.5 factor means katamari needs to be 50% the size of the item to collect it
-        // This matches the original Katamari Damacy feel where you can collect items that look smaller
-        return this.radius >= itemSize * 0.5; // Very generous for better gameplay experience
+        // Authentic PlayStation game collection threshold - much stricter like the original
+        // Katamari needs to be significantly larger than items to collect them
+        // Progressive difficulty: larger katamari needs to be even bigger relative to items
+        const baseThreshold = 1.2; // Need to be 20% larger than item minimum
+        const progressiveThreshold = Math.min(2.0, baseThreshold + (this.radius * 0.05)); // Gets stricter as katamari grows
+        
+        return this.radius >= itemSize * progressiveThreshold;
     }
 
     /**

@@ -27,7 +27,13 @@ vi.mock('../../../src/game/core/scene.js', () => ({
         children: []
     })),
     getInstancedMesh: vi.fn(),
-    updateInstancedMesh: vi.fn()
+    updateInstancedMesh: vi.fn(),
+    getCamera: vi.fn(() => ({
+        getWorldDirection: vi.fn(() => ({ x: 0, y: 0, z: -1, normalize: vi.fn() })),
+        fov: 75,
+        aspect: 16/9,
+        position: { x: 0, y: 10, z: 10 }
+    }))
 }));
 
 // Mock the physics module

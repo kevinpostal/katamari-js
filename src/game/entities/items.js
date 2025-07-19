@@ -27,9 +27,9 @@ const instancedGeometries = {};
 const instancedMaterials = {};
 const instancedMeshes = {};
 
-// Constants for item generation - optimized for performance
-const GENERATION_DISTANCE_THRESHOLD = 80; // Increased from 50 to reduce generation frequency
-const CLEANUP_DISTANCE_THRESHOLD = 150; // Reduced from 200 for more aggressive cleanup
+// Constants for item generation - authentic PlayStation game balance
+const GENERATION_DISTANCE_THRESHOLD = 60; // Reduced for more frequent item availability
+const CLEANUP_DISTANCE_THRESHOLD = 180; // Increased to keep more items around
 const MAP_BOUNDARY = 240;
 const ITEM_FADE_DURATION = 500; // Reduced from 1000ms for faster fade-in
 
@@ -409,7 +409,7 @@ function initializeInstancedMeshes(itemNames) {
  * Create an instanced item
  */
 function createInstancedItem(itemName, instancedId, color, dummy) {
-    const size = Math.random() * 1.5 + 0.5;
+    const size = Math.random() * 1.2 + 0.4; // Reduced for authentic PlayStation game balance
     const baseGeometry = instancedGeometries[instancedId];
 
     if (!baseGeometry) {
@@ -608,7 +608,7 @@ function createRegularItem(itemName, color) {
  * Create a car item with detailed geometry
  */
 function createCarItem(color) {
-    const size = Math.random() * 2 + 0.8;
+    const size = Math.random() * 1.5 + 0.8; // Reduced for authentic PlayStation game balance
     const itemGroup = new THREE.Group();
 
     // Main body
@@ -651,7 +651,7 @@ function createCarItem(color) {
  * Create a tree item with detailed geometry
  */
 function createTreeItem(color) {
-    const size = Math.random() * 4 + 2;
+    const size = Math.random() * 2.5 + 1.5; // Reduced for authentic PlayStation game balance
     const itemGroup = new THREE.Group();
 
     // Trunk
@@ -683,7 +683,7 @@ function createTreeItem(color) {
  * Create a house item with detailed geometry
  */
 function createHouseItem(color) {
-    const size = Math.random() * 2 + 1;
+    const size = Math.random() * 1.8 + 1.0; // Reduced for authentic PlayStation game balance
     const itemGroup = new THREE.Group();
 
     // Main body
@@ -796,11 +796,18 @@ export function updateItemFadeIn() {
 /**
  * Generate items dynamically based on katamari position
  */
-export function generateItemsAroundKatamari(katamariPosition, currentTheme) {
+export function generateItemsAroundKatamari(katamariPosition, currentTheme, katamariRadius = 2) {
     if (katamariPosition.distanceTo(lastGenerationPosition) > GENERATION_DISTANCE_THRESHOLD) {
         debugInfo("Generating new items due to travel distance.");
-        createCollectibleItems(15, currentTheme.items, katamariPosition, 100, false, 5); // Off-camera spawning for dynamic generation, min 5 units away
+
+        // Authentic item generation - more items needed due to slower growth
+        const baseItemCount = 35; // Increased to compensate for slower growth
+        const scaledItemCount = Math.min(60, baseItemCount + Math.floor(katamariRadius * 3)); // Up to 60 items max
+
+        createCollectibleItems(scaledItemCount, currentTheme.items, katamariPosition, 120, false, 8); // Larger spawn radius and min distance
         lastGenerationPosition.copy(katamariPosition);
+
+        debugInfo(`Generated ${scaledItemCount} items for katamari radius ${katamariRadius.toFixed(2)}`);
     }
 }
 
