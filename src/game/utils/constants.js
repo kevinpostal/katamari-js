@@ -206,7 +206,7 @@ export const THEMES = [
     {
         themeName: "Our Green Earth",
         story: "The King of All Cosmos demands a pristine Earth! Roll up all the litter and grow your Katamari!",
-        items: ["Car", "Tree", "House", "Rock", "Bush", "Bench", "Lamp Post", "Trash Can", "Mailbox", "Mushroom", "Flower", "Garden Gnome", "Bird Bath", "Picnic Table"],
+        items: ["Rock", "Bush", "Flower", "Mushroom", "Garden Gnome", "Bird Bath", "Skateboard", "Trash Can", "Mailbox", "Bicycle", "Fire Hydrant", "Traffic Cone", "Bench", "Lamp Post", "Picnic Table", "Hot Dog Stand", "Newspaper Stand", "Shopping Cart", "Car", "Bus", "Tree", "House", "Building"],
         groundColor: "#4CAF50",
         skyColor: "#87CEEB",
         baseTargetSize: 25
@@ -214,7 +214,7 @@ export const THEMES = [
     {
         themeName: "Urban Jungle",
         story: "The city is a mess! Clean up the streets and grow your Katamari to skyscraper size!",
-        items: ["Car", "Lamp Post", "Trash Can", "Bench", "Mailbox", "Fire Hydrant", "Traffic Cone", "Hot Dog Stand", "Newspaper Stand", "Bicycle", "Skateboard", "Shopping Cart"],
+        items: ["Car", "Lamp Post", "Trash Can", "Bench", "Mailbox", "Fire Hydrant", "Traffic Cone", "Hot Dog Stand", "Newspaper Stand", "Bicycle", "Skateboard", "Shopping Cart", "Bus", "Building"],
         groundColor: "#607D8B",
         skyColor: "#B0C4DE",
         baseTargetSize: 100
@@ -222,7 +222,7 @@ export const THEMES = [
     {
         themeName: "Cosmic Debris",
         story: "The cosmos is cluttered! Roll up space junk and form a new star!",
-        items: ["Asteroid", "Satellite", "Space Debris", "Comet Fragment", "Moon Rock", "Star Dust Cluster", "Alien Artifact", "Space Probe"],
+        items: ["Asteroid", "Satellite", "Space Debris", "Comet Fragment", "Moon Rock", "Star Dust Cluster", "Alien Artifact", "Space Probe", "Space Station"],
         groundColor: "#2C3E50",
         skyColor: "#0A0A2A",
         baseTargetSize: 200

@@ -574,6 +574,24 @@ function createRegularItem(itemName, color) {
             cannonShape = probeResult.shape;
             size = probeResult.size;
             break;
+        case 'Bus':
+            const busResult = createBusItem(color);
+            threeMesh = busResult.mesh;
+            cannonShape = busResult.shape;
+            size = busResult.size;
+            break;
+        case 'Building':
+            const buildingResult = createBuildingItem(color);
+            threeMesh = buildingResult.mesh;
+            cannonShape = buildingResult.shape;
+            size = buildingResult.size;
+            break;
+        case 'Space Station':
+            const stationResult = createSpaceStationItem(color);
+            threeMesh = stationResult.mesh;
+            cannonShape = stationResult.shape;
+            size = stationResult.size;
+            break;
         // Add more complex items as needed
         default:
             debugWarn(`Unknown regular item type: ${itemName}`);
@@ -1756,5 +1774,98 @@ function createSpaceProbeItem(color) {
         mesh: itemGroup,
         shape: cannonShape,
         size: size * 1.3
+    };
+}
+
+/**
+ * Create a bus item with detailed geometry
+ */
+function createBusItem(color) {
+    const size = Math.random() * 4 + 3;
+    const itemGroup = new THREE.Group();
+
+    // Main body
+    const busBodyGeo = new THREE.BoxGeometry(size * 3, size * 1.2, size);
+    const busBodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true, opacity: 0 });
+    const busBody = new THREE.Mesh(busBodyGeo, busBodyMat);
+    busBody.castShadow = busBody.receiveShadow = true;
+    itemGroup.add(busBody);
+
+    // Wheels
+    const wheelGeo = new THREE.CylinderGeometry(size * 0.3, size * 0.3, size * 0.3, 16);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, transparent: true, opacity: 0 });
+    const wheelPositions = [[1.2, 0.4], [-1.2, 0.4], [1.2, -0.4], [-1.2, -0.4]];
+
+    wheelPositions.forEach(([dx, dz]) => {
+        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(size * dx, -size * 0.4, size * dz);
+        itemGroup.add(wheel);
+    });
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size * 1.5, size * 0.6, size * 0.5));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 1.5
+    };
+}
+
+/**
+ * Create a building item with detailed geometry
+ */
+function createBuildingItem(color) {
+    const size = Math.random() * 10 + 8;
+    const itemGroup = new THREE.Group();
+
+    // Main structure
+    const buildingGeo = new THREE.BoxGeometry(size, size * 3, size);
+    const buildingMat = new THREE.MeshStandardMaterial({ color, roughness: 0.8, transparent: true, opacity: 0 });
+    const building = new THREE.Mesh(buildingGeo, buildingMat);
+    building.castShadow = building.receiveShadow = true;
+    itemGroup.add(building);
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size * 0.5, size * 1.5, size * 0.5));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 2
+    };
+}
+
+/**
+ * Create a space station item with detailed geometry
+ */
+function createSpaceStationItem(color) {
+    const size = Math.random() * 15 + 12;
+    const itemGroup = new THREE.Group();
+
+    // Central hub
+    const hubGeo = new THREE.SphereGeometry(size * 0.5, 32, 32);
+    const hubMat = new THREE.MeshStandardMaterial({ color: 0xCCCCCC, roughness: 0.4, transparent: true, opacity: 0 });
+    const hub = new THREE.Mesh(hubGeo, hubMat);
+    hub.castShadow = hub.receiveShadow = true;
+    itemGroup.add(hub);
+
+    // Solar panels
+    const panelGeo = new THREE.BoxGeometry(size * 3, size * 0.1, size * 1.5);
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x000080, roughness: 0.2, transparent: true, opacity: 0 });
+
+    const panel1 = new THREE.Mesh(panelGeo, panelMat);
+    panel1.position.set(size * 2, 0, 0);
+    itemGroup.add(panel1);
+
+    const panel2 = new THREE.Mesh(panelGeo, panelMat);
+    panel2.position.set(-size * 2, 0, 0);
+    itemGroup.add(panel2);
+
+    const cannonShape = new CANNON.Box(new CANNON.Vec3(size * 2.5, size * 0.5, size * 0.75));
+
+    return {
+        mesh: itemGroup,
+        shape: cannonShape,
+        size: size * 2.5
     };
 }
