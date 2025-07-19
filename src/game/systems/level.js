@@ -91,7 +91,7 @@ async function generateNewLevel(createKatamariCallback = null) {
     // Generate initial items
     debugInfo("Creating initial collectible items...");
     const initialPosition = new THREE.Vector3(0, 0, 0);
-    createCollectibleItems(200, currentTheme.items, initialPosition, 180);
+    createCollectibleItems(200, currentTheme.items, initialPosition, 180, true, 10); // Allow on-camera for initial spawn, min 10 units from center
     resetLastGenerationPosition(initialPosition);
 
     isGeneratingLevel = false;

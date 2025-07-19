@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { debugLog, debugWarn, debugError, debugInfo } from '../utils/debug.js';
 import { INSTANCED_ITEM_MAP, RENDERING } from '../utils/constants.js';
-import { getScene, getInstancedMesh, updateInstancedMesh } from '../core/scene.js';
+import { getScene, getInstancedMesh, updateInstancedMesh, getCamera } from '../core/scene.js';
 import {
     getPhysicsWorld,
     addPhysicsBody,
@@ -37,6 +37,79 @@ const ITEM_FADE_DURATION = 500; // Reduced from 1000ms for faster fade-in
 const ITEM_COLORS = [0xFF6347, 0x6A5ACD, 0x3CB371, 0xFFD700, 0xBA55D3, 0x4682B4, 0xD2B48C, 0xFFA07A, 0x20B2AA, 0xFF69B4];
 
 /**
+ * Calculate a position that's outside the camera's field of view
+ * @param {THREE.Vector3} centerPosition - The katamari's position
+ * @param {number} spawnRadius - The radius around the center to spawn items
+ * @returns {THREE.Vector3} A position that's off-camera
+ */
+function getOffCameraPosition(centerPosition, spawnRadius, minDistance = 0) {
+    const camera = getCamera();
+    if (!camera) {
+        // Fallback to random position if camera not available
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * spawnRadius;
+        return new THREE.Vector3(
+            centerPosition.x + Math.cos(angle) * distance,
+            centerPosition.y,
+            centerPosition.z + Math.sin(angle) * distance
+        );
+    }
+
+    // Calculate camera direction and field of view
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldDirection(cameraDirection);
+
+    // Get camera's horizontal field of view in radians
+    const fovRadians = THREE.MathUtils.degToRad(camera.fov);
+    const aspect = camera.aspect;
+    const horizontalFov = 2 * Math.atan(Math.tan(fovRadians / 2) * aspect);
+
+    // Calculate the camera's viewing angle relative to the katamari
+    const cameraToKatamari = new THREE.Vector3().subVectors(centerPosition, camera.position);
+    cameraToKatamari.y = 0; // Project to horizontal plane
+    cameraToKatamari.normalize();
+
+    // Get the camera's forward direction projected to horizontal plane
+    const cameraForward = new THREE.Vector3(cameraDirection.x, 0, cameraDirection.z).normalize();
+
+    // Calculate the angle of the camera's view direction
+    const cameraAngle = Math.atan2(cameraForward.z, cameraForward.x);
+
+    // Define the visible arc (camera's field of view plus some buffer)
+    const visibleArcBuffer = Math.PI / 6; // 30 degrees buffer
+    const visibleArcStart = cameraAngle - horizontalFov / 2 - visibleArcBuffer;
+    const visibleArcEnd = cameraAngle + horizontalFov / 2 + visibleArcBuffer;
+
+    // Generate a random angle that's outside the visible arc
+    let spawnAngle;
+    const invisibleArcSize = (2 * Math.PI) - (visibleArcEnd - visibleArcStart);
+
+    if (invisibleArcSize > 0) {
+        // Pick a random point in the invisible arc
+        const randomInInvisibleArc = Math.random() * invisibleArcSize;
+        spawnAngle = visibleArcEnd + randomInInvisibleArc;
+
+        // Normalize angle to [-π, π] range
+        while (spawnAngle > Math.PI) spawnAngle -= 2 * Math.PI;
+        while (spawnAngle < -Math.PI) spawnAngle += 2 * Math.PI;
+    } else {
+        // Fallback: spawn behind the camera
+        spawnAngle = cameraAngle + Math.PI + (Math.random() - 0.5) * Math.PI / 2;
+    }
+
+    // Calculate distance with some variation, respecting minimum distance
+    const effectiveMinDistance = Math.max(minDistance, spawnRadius * 0.5);
+    const maxDistance = spawnRadius;
+    const distance = effectiveMinDistance + Math.random() * (maxDistance - effectiveMinDistance);
+
+    // Calculate final position
+    const x = centerPosition.x + Math.cos(spawnAngle) * distance;
+    const z = centerPosition.z + Math.sin(spawnAngle) * distance;
+
+    return new THREE.Vector3(x, centerPosition.y, z);
+}
+
+/**
  * Initialize the items system
  */
 export function initializeItemsSystem() {
@@ -54,7 +127,7 @@ export function initializeItemsSystem() {
 /**
  * Create collectible items around a center position
  */
-export function createCollectibleItems(count, itemNames, centerPosition = new THREE.Vector3(0, 0, 0), spawnRadius = 100) {
+export function createCollectibleItems(count, itemNames, centerPosition = new THREE.Vector3(0, 0, 0), spawnRadius = 100, allowOnCamera = false, minDistance = 0) {
     debugInfo(`createCollectibleItems: Attempting to create ${count} items from ${itemNames.length} types: [${itemNames.join(', ')}]`);
     if (!itemNames || itemNames.length === 0) {
         debugWarn("createCollectibleItems: itemNames array is empty or undefined. Cannot create items.");
@@ -116,10 +189,20 @@ export function createCollectibleItems(count, itemNames, centerPosition = new TH
         }
 
         // Position the item with proper ground clearance
-        const angle = Math.random() * Math.PI * 2;
-        const distance = Math.random() * spawnRadius;
-        const x = centerPosition.x + Math.cos(angle) * distance;
-        const z = centerPosition.z + Math.sin(angle) * distance;
+        let x, z;
+        if (allowOnCamera) {
+            // Allow items to spawn anywhere around the center (including on-camera)
+            const angle = Math.random() * Math.PI * 2;
+            // Ensure distance is at least minDistance away from center
+            const distance = minDistance + Math.random() * (spawnRadius - minDistance);
+            x = centerPosition.x + Math.cos(angle) * distance;
+            z = centerPosition.z + Math.sin(angle) * distance;
+        } else {
+            // Position items off-camera only
+            const offCameraPosition = getOffCameraPosition(centerPosition, spawnRadius, minDistance);
+            x = offCameraPosition.x;
+            z = offCameraPosition.z;
+        }
 
         // Clamp to map boundaries
         const clampedX = THREE.MathUtils.clamp(x, -MAP_BOUNDARY, MAP_BOUNDARY);
@@ -716,7 +799,7 @@ export function updateItemFadeIn() {
 export function generateItemsAroundKatamari(katamariPosition, currentTheme) {
     if (katamariPosition.distanceTo(lastGenerationPosition) > GENERATION_DISTANCE_THRESHOLD) {
         debugInfo("Generating new items due to travel distance.");
-        createCollectibleItems(15, currentTheme.items, katamariPosition, 100); // Reduced from 50 to 15 items, smaller radius
+        createCollectibleItems(15, currentTheme.items, katamariPosition, 100, false, 5); // Off-camera spawning for dynamic generation, min 5 units away
         lastGenerationPosition.copy(katamariPosition);
     }
 }
