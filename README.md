@@ -2,11 +2,13 @@
 
 A browser-based 3D physics game inspired by Katamari Damacy, built with modern web technologies. Roll around procedurally generated worlds, collecting objects to grow your katamari from tiny to cosmic proportions.
 
-![CI Status](https://github.com/yourusername/katamari-js/workflows/Continuous%20Integration/badge.svg) ![Coverage](https://codecov.io/gh/yourusername/katamari-js/branch/main/graph/badge.svg) ![Game Preview](https://img.shields.io/badge/Status-Playable-brightgreen) ![Version](https://img.shields.io/badge/Version-1.0.0-blue) ![License](https://img.shields.io/badge/License-MIT-green)
+[![Game Status](https://img.shields.io/badge/Status-Live-brightgreen)](https://kevinpostal.github.io/katamari-js/) [![Version](https://img.shields.io/badge/Version-1.0.0-blue)](https://github.com/kevinpostal/katamari-js) [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Built with Three.js](https://img.shields.io/badge/Built%20with-Three.js-orange)](https://threejs.org/) [![Physics](https://img.shields.io/badge/Physics-Cannon--ES-red)](https://github.com/pmndrs/cannon-es)
 
 ## 🎮 Play Now
 
-Simply open `index.html` in your browser or visit the [live demo](#) to start playing immediately!
+**[🚀 Play Katamari-JS Live](https://kevinpostal.github.io/katamari-js/)**
+
+Experience the full game instantly in your browser - no downloads or installation required!
 
 <!-- Test deployment workflow - manual trigger test -->
 
@@ -44,7 +46,7 @@ Simply open `index.html` in your browser or visit the [live demo](#) to start pl
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/katamari-js.git
+   git clone https://github.com/kevinpostal/katamari-js.git
    cd katamari-js
    ```
 
@@ -211,9 +213,30 @@ export const PERFORMANCE = {
 
 ## 🚀 Deployment
 
-### Static Hosting
+### Automated GitHub Pages Deployment
 
-The game is designed for simple static hosting:
+The project includes an automated deployment system:
+
+```bash
+# Deploy to GitHub Pages
+npm run deploy
+
+# Build and deploy in one command
+npm run deploy:build
+
+# Clean build and deploy
+npm run deploy:clean
+```
+
+The deployment script automatically:
+- Validates the build output
+- Creates a fresh production build
+- Deploys to the `gh-pages` branch
+- Provides deployment verification
+
+### Manual Static Hosting
+
+For other hosting platforms:
 
 1. **Build for production**
 
@@ -282,9 +305,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues** - Report bugs via [GitHub Issues](https://github.com/yourusername/katamari-js/issues)
-- **Discussions** - Join conversations in [GitHub Discussions](https://github.com/yourusername/katamari-js/discussions)
-- **Documentation** - Check the [Wiki](https://github.com/yourusername/katamari-js/wiki) for detailed guides
+- **Issues** - Report bugs via [GitHub Issues](https://github.com/kevinpostal/katamari-js/issues)
+- **Discussions** - Join conversations in [GitHub Discussions](https://github.com/kevinpostal/katamari-js/discussions)
+- **Documentation** - Check the [Wiki](https://github.com/kevinpostal/katamari-js/wiki) for detailed guides
 
 ---
 
