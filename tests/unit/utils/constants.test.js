@@ -15,7 +15,8 @@ import {
     ENVIRONMENT,
     LIGHTING,
     THEMES,
-    INSTANCED_ITEM_MAP
+    INSTANCED_ITEM_MAP,
+    ITEM_GENERATION
 } from '../../../src/game/utils/constants.js';
 
 describe('Game Constants', () => {
@@ -105,7 +106,6 @@ describe('Game Constants', () => {
     describe('Level Constants', () => {
         it('should have all required level properties', () => {
             expect(LEVEL).toHaveProperty('GENERATION_DISTANCE_THRESHOLD');
-            expect(LEVEL).toHaveProperty('CLEANUP_DISTANCE_THRESHOLD');
             expect(LEVEL).toHaveProperty('MAP_BOUNDARY');
             expect(LEVEL).toHaveProperty('DIFFICULTY_FACTOR');
         });
@@ -113,9 +113,6 @@ describe('Game Constants', () => {
         it('should have valid level values', () => {
             expect(typeof LEVEL.GENERATION_DISTANCE_THRESHOLD).toBe('number');
             expect(LEVEL.GENERATION_DISTANCE_THRESHOLD).toBeGreaterThan(0);
-            
-            expect(typeof LEVEL.CLEANUP_DISTANCE_THRESHOLD).toBe('number');
-            expect(LEVEL.CLEANUP_DISTANCE_THRESHOLD).toBeGreaterThan(LEVEL.GENERATION_DISTANCE_THRESHOLD);
             
             expect(typeof LEVEL.MAP_BOUNDARY).toBe('number');
             expect(LEVEL.MAP_BOUNDARY).toBeGreaterThan(0);
@@ -126,11 +123,8 @@ describe('Game Constants', () => {
         });
 
         it('should have logical distance relationships', () => {
-            // Cleanup should happen further than generation
-            expect(LEVEL.CLEANUP_DISTANCE_THRESHOLD).toBeGreaterThan(LEVEL.GENERATION_DISTANCE_THRESHOLD);
-            
             // Map boundary should be reasonable relative to distances
-            expect(LEVEL.MAP_BOUNDARY).toBeGreaterThan(LEVEL.CLEANUP_DISTANCE_THRESHOLD);
+            expect(LEVEL.MAP_BOUNDARY).toBeGreaterThan(LEVEL.GENERATION_DISTANCE_THRESHOLD);
         });
     });
 
@@ -311,6 +305,29 @@ describe('Game Constants', () => {
         });
     });
 
+    describe('Item Generation Constants', () => {
+        it('should have all required item generation properties', () => {
+            expect(ITEM_GENERATION).toHaveProperty('FADE_DURATION');
+            expect(ITEM_GENERATION).toHaveProperty('CLEANUP_DISTANCE_THRESHOLD');
+            expect(ITEM_GENERATION).toHaveProperty('LINEAR_DAMPING');
+            expect(ITEM_GENERATION).toHaveProperty('ANGULAR_DAMPING');
+        });
+
+        it('should have valid item generation values', () => {
+            expect(typeof ITEM_GENERATION.FADE_DURATION).toBe('number');
+            expect(ITEM_GENERATION.FADE_DURATION).toBeGreaterThan(0);
+
+            expect(typeof ITEM_GENERATION.CLEANUP_DISTANCE_THRESHOLD).toBe('number');
+            expect(ITEM_GENERATION.CLEANUP_DISTANCE_THRESHOLD).toBeGreaterThan(0);
+
+            expect(typeof ITEM_GENERATION.LINEAR_DAMPING).toBe('number');
+            expect(ITEM_GENERATION.LINEAR_DAMPING).toBeGreaterThanOrEqual(0);
+
+            expect(typeof ITEM_GENERATION.ANGULAR_DAMPING).toBe('number');
+            expect(ITEM_GENERATION.ANGULAR_DAMPING).toBeGreaterThanOrEqual(0);
+        });
+    });
+
     describe('Lighting Constants', () => {
         it('should have all required lighting properties', () => {
             expect(LIGHTING).toHaveProperty('AMBIENT_COLOR');
@@ -480,12 +497,8 @@ describe('Game Constants', () => {
         });
 
         it('should have consistent level distance relationships', () => {
-            // Generation distance should be less than cleanup distance
-            expect(LEVEL.GENERATION_DISTANCE_THRESHOLD).toBeLessThan(LEVEL.CLEANUP_DISTANCE_THRESHOLD);
-            
-            // Both should be less than map boundary
+            // Generation distance should be less than map boundary
             expect(LEVEL.GENERATION_DISTANCE_THRESHOLD).toBeLessThan(LEVEL.MAP_BOUNDARY);
-            expect(LEVEL.CLEANUP_DISTANCE_THRESHOLD).toBeLessThan(LEVEL.MAP_BOUNDARY);
         });
 
         it('should have consistent katamari progression values', () => {
