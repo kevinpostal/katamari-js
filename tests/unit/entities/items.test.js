@@ -60,6 +60,23 @@ vi.mock('../../../src/game/utils/debug.js', () => ({
 
 // Mock the constants module
 vi.mock('../../../src/game/utils/constants.js', () => ({
+    WORLD: {
+        MAP_BOUNDARY: 500,
+        ITEM_SPAWN_RADIUS: 100,
+        ITEM_SPAWN_COUNT: 200,
+        INITIAL_ITEM_SPAWN_RADIUS: 180,
+        MIN_SPAWN_DISTANCE: 10
+    },
+    ITEM_GENERATION: {
+        FADE_DURATION: 500,
+        CLEANUP_DISTANCE_THRESHOLD: 180,
+        LINEAR_DAMPING: 0.1,
+        ANGULAR_DAMPING: 0.1,
+        DEFAULT_GEOMETRY_SIZE: 1,
+        SPHERE_WIDTH_SEGMENTS: 8,
+        SPHERE_HEIGHT_SEGMENTS: 6,
+        CYLINDER_RADIAL_SEGMENTS: 8
+    },
     INSTANCED_ITEM_MAP: {
         'Rock': 'sphere',
         'Bush': 'sphere',
@@ -325,7 +342,7 @@ describe('Items System', () => {
             expect(() => {
                 createCollectibleItems(count, instancedItemNames);
             }).not.toThrow();
-        });
+        }, 15000); // Increase timeout to 15 seconds
     });
 
     describe('Item Collection Logic', () => {

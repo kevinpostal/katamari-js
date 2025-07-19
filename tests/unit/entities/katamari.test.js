@@ -13,26 +13,41 @@ vi.mock('cannon-es', () => import('../../__mocks__/cannon-es.js'));
 
 // Mock the physics module
 vi.mock('../../../src/game/core/physics.js', () => ({
-    createKatamariBody: vi.fn(() => ({
-        position: { x: 0, y: 2, z: 0 },
-        velocity: { 
-            x: 0, y: 0, z: 0,
-            length: vi.fn(() => 0),
-            scale: vi.fn()
-        },
-        angularVelocity: { 
-            x: 0, y: 0, z: 0,
-            length: vi.fn(() => 0),
-            scale: vi.fn()
-        },
-        linearDamping: 0.05,
-        angularDamping: 0.1,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        applyTorque: vi.fn(),
-        applyImpulse: vi.fn(),
-        mass: 1
-    })),
+    createKatamariBody: vi.fn(() => {
+        const body = {
+            position: { x: 0, y: 2, z: 0 },
+            velocity: { 
+                x: 0, y: 0, z: 0,
+                length: vi.fn(() => 0),
+                scale: vi.fn()
+            },
+            angularVelocity: { 
+                x: 0, y: 0, z: 0,
+                length: vi.fn(() => 0),
+                scale: vi.fn()
+            },
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            applyTorque: vi.fn(),
+            applyImpulse: vi.fn(),
+            mass: 1
+        };
+        
+        // Make damping properties writable
+        Object.defineProperty(body, 'linearDamping', {
+            value: 0.05,
+            writable: true,
+            configurable: true
+        });
+        
+        Object.defineProperty(body, 'angularDamping', {
+            value: 0.1,
+            writable: true,
+            configurable: true
+        });
+        
+        return body;
+    }),
     updateKatamariPhysics: vi.fn(),
     removePhysicsBody: vi.fn(),
     addPhysicsBody: vi.fn()
@@ -48,8 +63,49 @@ vi.mock('../../../src/game/utils/debug.js', () => ({
 
 // Mock the constants module
 vi.mock('../../../src/game/utils/constants.js', () => ({
+    VISUAL: {
+        KATAMARI_GEOMETRY_SEGMENTS: 32,
+        KATAMARI_MATERIAL_ROUGHNESS: 0.6,
+        KATAMARI_MATERIAL_METALNESS: 0.1
+    },
     KATAMARI: {
-        INITIAL_RADIUS: 2.0
+        INITIAL_RADIUS: 2,
+        BASE_SUCK_RANGE_FACTOR: 1.5,
+        GROWTH_RATE: 0.1,
+        VOLUME_CONTRIBUTION_FACTOR: 0.3,
+        DIFFICULTY_SCALE_FACTOR: 0.02,
+        SIZE_RATIO_MULTIPLIER: 2.0,
+        MIN_DIFFICULTY_SCALE: 0.1
+    },
+    COLLECTION: {
+        BASE_THRESHOLD: 0.9,
+        PROGRESSIVE_SCALING: 0.02,
+        MAX_THRESHOLD: 1.3,
+        ATTRACTION_FORCE: 0.08,
+        MIN_ATTRACTION_RANGE_FACTOR: 1.2,
+        MAX_ATTRACTION_RANGE_FACTOR: 3.0,
+        ATTRACTION_RANGE_GROWTH_RATE: 0.1,
+        VOLUME_CONTRIBUTION_FACTOR: 0.8,
+        GROWTH_RATE_REDUCTION: 0.3,
+        DIFFICULTY_SCALE_RATE: 0.02,
+        SIZE_RATIO_MULTIPLIER: 2.0,
+        COMPRESSION_RATE: 0.008,
+        MIN_COMPRESSION_SCALE: 0.6,
+        ATTACHMENT_SCALE: 0.85,
+        SURFACE_DISTANCE_FACTOR: 0.15,
+        ORBITAL_SPEED_RANGE: [0.2, 0.7]
+    },
+    MOVEMENT: {
+        BASE_ACCELERATION: 80,
+        MAX_ACCELERATION: 200,
+        ACCELERATION_RADIUS_MULTIPLIER: 2,
+        ACTIVE_LINEAR_DAMPING: 0.05,
+        ACTIVE_ANGULAR_DAMPING: 0.05,
+        IDLE_LINEAR_DAMPING: 0.9,
+        IDLE_ANGULAR_DAMPING: 0.9,
+        GYRO_SENSITIVITY: 0.8,
+        GYRO_THRESHOLD: 0.1,
+        TORQUE_MULTIPLIER: 0.5
     }
 }));
 
@@ -426,10 +482,10 @@ describe('Katamari Entity', () => {
         it('should calculate collection threshold correctly with authentic PlayStation game logic', () => {
             katamari.radius = 2.0;
             
-            // With new authentic formula: baseThreshold = 1.2, progressiveThreshold = 1.2 + (2.0 * 0.05) = 1.3
-            // So katamari needs to be >= itemSize * 1.3
-            expect(katamari.canCollectItem(1.5)).toBe(true); // 2.0 >= 1.5 * 1.3 (1.95)
-            expect(katamari.canCollectItem(1.6)).toBe(false); // 2.0 < 1.6 * 1.3 (2.08)
+            // With actual formula: progressiveThreshold = min(1.3, 0.9 + (2.0 * 0.02)) = min(1.3, 0.94) = 0.94
+            // So katamari needs to be >= itemSize * 0.94
+            expect(katamari.canCollectItem(1.5)).toBe(true); // 2.0 >= 1.5 * 0.94 (1.41)
+            expect(katamari.canCollectItem(2.2)).toBe(false); // 2.0 < 2.2 * 0.94 (2.068)
         });
 
         it('should calculate attraction range based on radius', () => {

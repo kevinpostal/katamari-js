@@ -5,6 +5,7 @@
  */
 
 import { debugLog, debugWarn, debugError, debugInfo, getDebugMode } from '../utils/debug.js';
+import { UI } from '../utils/constants.js';
 
 // UI element references
 let katamariSizeUI = null;
@@ -112,12 +113,12 @@ export function updateHUD(gameState) {
 
     // Update katamari size
     if (katamariSizeUI && katamariRadius !== undefined) {
-        katamariSizeUI.textContent = `${katamariRadius.toFixed(2)}m`;
+        katamariSizeUI.textContent = `${katamariRadius.toFixed(UI.DECIMAL_PLACES)}m`;
     }
 
     // Update katamari speed
     if (katamariSpeedUI && katamariSpeed !== undefined) {
-        katamariSpeedUI.textContent = `${katamariSpeed.toFixed(2)}m/s`;
+        katamariSpeedUI.textContent = `${katamariSpeed.toFixed(UI.DECIMAL_PLACES)}m/s`;
     }
 
     // Update items collected count
@@ -127,13 +128,13 @@ export function updateHUD(gameState) {
 
     // Update progress bar
     if (progressBar && katamariRadius !== undefined && targetSize !== undefined) {
-        const progress = Math.min(100, (katamariRadius / targetSize) * 100);
+        const progress = Math.min(UI.PROGRESS_MAX, (katamariRadius / targetSize) * UI.PROGRESS_MAX);
         progressBar.style.width = `${progress}%`;
     }
 
     // Update target size
     if (targetSizeUI && targetSize !== undefined) {
-        targetSizeUI.textContent = `${targetSize.toFixed(2)}m`;
+        targetSizeUI.textContent = `${targetSize.toFixed(UI.DECIMAL_PLACES)}m`;
     }
 
     // Update FPS counter
@@ -154,7 +155,7 @@ export function updatePowerUpStatus(activePowerUps) {
 
     for (const [type, expiryTime] of Object.entries(activePowerUps)) {
         if (expiryTime > now) {
-            const remainingTime = ((expiryTime - now) / 1000).toFixed(1);
+            const remainingTime = ((expiryTime - now) / UI.POWER_UP_TIME_DIVISOR).toFixed(UI.POWER_UP_TIME_DECIMAL_PLACES);
             powerUpStatusHTML += `<div>${type}: ${remainingTime}s</div>`;
         }
     }
@@ -215,7 +216,7 @@ export function isMessageOverlayVisible() {
  * @param {string} message - Alert message
  * @param {number} duration - Duration to show alert (default: 3000ms)
  */
-export function showCustomAlert(message, duration = 3000) {
+export function showCustomAlert(message, duration = UI.ALERT_DURATION) {
     const customAlert = document.createElement('div');
     customAlert.textContent = message;
     customAlert.style.cssText = `

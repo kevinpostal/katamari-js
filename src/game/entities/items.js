@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { debugLog, debugWarn, debugError, debugInfo } from '../utils/debug.js';
-import { INSTANCED_ITEM_MAP, RENDERING } from '../utils/constants.js';
+import { INSTANCED_ITEM_MAP, RENDERING, ITEM_GENERATION, WORLD } from '../utils/constants.js';
 import { getScene, getInstancedMesh, updateInstancedMesh, getCamera } from '../core/scene.js';
 import {
     getPhysicsWorld,
@@ -29,9 +29,6 @@ const instancedMeshes = {};
 
 // Constants for item generation - authentic PlayStation game balance
 const GENERATION_DISTANCE_THRESHOLD = 60; // Reduced for more frequent item availability
-const CLEANUP_DISTANCE_THRESHOLD = 180; // Increased to keep more items around
-const MAP_BOUNDARY = 240;
-const ITEM_FADE_DURATION = 500; // Reduced from 1000ms for faster fade-in
 
 // Item colors for variety
 const ITEM_COLORS = [0xFF6347, 0x6A5ACD, 0x3CB371, 0xFFD700, 0xBA55D3, 0x4682B4, 0xD2B48C, 0xFFA07A, 0x20B2AA, 0xFF69B4];
@@ -205,8 +202,8 @@ export function createCollectibleItems(count, itemNames, centerPosition = new TH
         }
 
         // Clamp to map boundaries
-        const clampedX = THREE.MathUtils.clamp(x, -MAP_BOUNDARY, MAP_BOUNDARY);
-        const clampedZ = THREE.MathUtils.clamp(z, -MAP_BOUNDARY, MAP_BOUNDARY);
+        const clampedX = THREE.MathUtils.clamp(x, -WORLD.MAP_BOUNDARY, WORLD.MAP_BOUNDARY);
+        const clampedZ = THREE.MathUtils.clamp(z, -WORLD.MAP_BOUNDARY, WORLD.MAP_BOUNDARY);
 
         // Ensure items spawn above ground level with proper Y coordinates
         // Use size-based positioning with additional height for falling effect
@@ -240,8 +237,8 @@ export function createCollectibleItems(count, itemNames, centerPosition = new TH
             itemBody.angularVelocity.set(0, 0, 0); // No initial rotation
 
             // Apply damping to prevent excessive bouncing and spinning
-            itemBody.linearDamping = 0.1; // Light linear damping
-            itemBody.angularDamping = 0.1; // Light angular damping
+            itemBody.linearDamping = ITEM_GENERATION.LINEAR_DAMPING; // Light linear damping
+            itemBody.angularDamping = ITEM_GENERATION.ANGULAR_DAMPING; // Light angular damping
 
             // Set material properties for realistic physics interaction
             itemBody.material = new CANNON.Material('item', {

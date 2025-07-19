@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { debugLog, debugWarn, debugError, debugInfo } from '../utils/debug.js';
-import { RENDERING, LIGHTING } from '../utils/constants.js';
+import { RENDERING, LIGHTING, CAMERA, ITEM_GENERATION } from '../utils/constants.js';
 
 // Scene management state
 let scene, camera, renderer;
@@ -30,8 +30,8 @@ function initializeScene() {
         RENDERING.CAMERA_NEAR, 
         RENDERING.CAMERA_FAR
     );
-    camera.position.set(0, 15, 30);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(CAMERA.INITIAL_POSITION.x, CAMERA.INITIAL_POSITION.y, CAMERA.INITIAL_POSITION.z);
+    camera.lookAt(CAMERA.LOOK_AT_POSITION.x, CAMERA.LOOK_AT_POSITION.y, CAMERA.LOOK_AT_POSITION.z);
     
     // Create renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -106,24 +106,24 @@ function getInstancedMesh(geometryType, geometryParams, material, maxInstances =
         switch (geometryType) {
             case 'sphere':
                 geometry = new THREE.SphereGeometry(
-                    geometryParams.radius || 1,
-                    geometryParams.widthSegments || 8,
-                    geometryParams.heightSegments || 6
+                    geometryParams.radius || ITEM_GENERATION.DEFAULT_GEOMETRY_SIZE,
+                    geometryParams.widthSegments || ITEM_GENERATION.SPHERE_WIDTH_SEGMENTS,
+                    geometryParams.heightSegments || ITEM_GENERATION.SPHERE_HEIGHT_SEGMENTS
                 );
                 break;
             case 'box':
                 geometry = new THREE.BoxGeometry(
-                    geometryParams.width || 1,
-                    geometryParams.height || 1,
-                    geometryParams.depth || 1
+                    geometryParams.width || ITEM_GENERATION.DEFAULT_GEOMETRY_SIZE,
+                    geometryParams.height || ITEM_GENERATION.DEFAULT_GEOMETRY_SIZE,
+                    geometryParams.depth || ITEM_GENERATION.DEFAULT_GEOMETRY_SIZE
                 );
                 break;
             case 'cylinder':
                 geometry = new THREE.CylinderGeometry(
-                    geometryParams.radiusTop || 1,
-                    geometryParams.radiusBottom || 1,
-                    geometryParams.height || 1,
-                    geometryParams.radialSegments || 8
+                    geometryParams.radiusTop || ITEM_GENERATION.DEFAULT_GEOMETRY_SIZE,
+                    geometryParams.radiusBottom || ITEM_GENERATION.DEFAULT_GEOMETRY_SIZE,
+                    geometryParams.height || ITEM_GENERATION.DEFAULT_GEOMETRY_SIZE,
+                    geometryParams.radialSegments || ITEM_GENERATION.CYLINDER_RADIAL_SEGMENTS
                 );
                 break;
             default:

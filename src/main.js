@@ -10,7 +10,7 @@ import * as Tone from 'tone';
 
 // Import game modules
 import { debugInfo, debugWarn, debugError, debugLog, toggleDebugMode } from './game/utils/debug.js';
-import { PHYSICS, KATAMARI } from './game/utils/constants.js';
+import { PHYSICS, KATAMARI, COLLECTION, CAMERA, WORLD, PERFORMANCE } from './game/utils/constants.js';
 import { 
     initializeScene, 
     setupLighting, 
@@ -274,8 +274,7 @@ const gameModule = (function() {
             katamari.handleMovement(movementInput, camera, isGyroscopeEnabled());
 
             // Update katamari state
-            const mapBoundary = 500;
-            katamari.update(mapBoundary);
+            katamari.update(WORLD.MAP_BOUNDARY);
 
             // Synchronize physics bodies with visual meshes
             synchronizePhysicsWithVisuals();
@@ -285,13 +284,13 @@ const gameModule = (function() {
 
             // Calculate katamari speed for UI and audio
             const velocity = katamari.getVelocityMagnitude();
-            smoothedSpeed = smoothedSpeed * 0.9 + velocity * 0.1;
+            smoothedSpeed = smoothedSpeed * PERFORMANCE.SPEED_SMOOTHING_FACTOR + velocity * PERFORMANCE.VELOCITY_SMOOTHING_FACTOR;
 
             // Update camera to follow katamari
             updateCamera();
 
             // Reduce frequency of expensive operations
-            if (Math.random() < 0.1) { // Only run 10% of the time
+            if (Math.random() < PERFORMANCE.EXPENSIVE_OPERATIONS_FREQUENCY) { // Only run 10% of the time
                 // Update physics debugging (includes periodic integrity checks)
                 updatePhysicsDebugging(deltaTime);
 
@@ -313,7 +312,7 @@ const gameModule = (function() {
             }
 
             // Reduce frequency of audio and UI updates
-            if (Math.random() < 0.3) { // Only run 30% of the time
+            if (Math.random() < PERFORMANCE.UI_UPDATE_FREQUENCY) { // Only run 30% of the time
                 // Update audio based on movement
                 updateAudioBasedOnMovement(velocity);
 
@@ -414,7 +413,7 @@ const gameModule = (function() {
                 // Apply attraction force for items that are too big to collect immediately
                 if (!katamari.canCollectItem(item.userData.size)) {
                     const direction = new THREE.Vector3().subVectors(katamariPosition, item.position);
-                    const attractionStrength = Math.max(0, 1 - distance / attractionRange) * 0.02;
+                    const attractionStrength = Math.max(0, 1 - distance / attractionRange) * COLLECTION.ATTRACTION_FORCE;
                     direction.normalize().multiplyScalar(attractionStrength);
                     item.position.add(direction);
                     
@@ -433,7 +432,7 @@ const gameModule = (function() {
     // Update audio based on katamari movement
     function updateAudioBasedOnMovement(velocity) {
         const currentTime = performance.now();
-        const isMoving = velocity > 0.1;
+        const isMoving = velocity > PERFORMANCE.MOVEMENT_THRESHOLD;
         
         if (isMoving) {
             // Play rolling sound with cooldown
@@ -482,9 +481,8 @@ const gameModule = (function() {
         const katamariPosition = katamari.getThreePosition();
         
         // Calculate camera distance based on katamari size
-        const baseCameraDistance = 20;
-        const cameraDistance = baseCameraDistance + katamari.radius * 2;
-        const cameraHeight = 15 + katamari.radius;
+        const cameraDistance = CAMERA.BASE_DISTANCE + katamari.radius * CAMERA.DISTANCE_MULTIPLIER;
+        const cameraHeight = CAMERA.HEIGHT_OFFSET + katamari.radius;
         
         // Smooth camera following
         const targetCameraPosition = new THREE.Vector3(
@@ -493,10 +491,10 @@ const gameModule = (function() {
             katamariPosition.z + cameraDistance
         );
         
-        camera.position.lerp(targetCameraPosition, 0.05);
+        camera.position.lerp(targetCameraPosition, CAMERA.FOLLOW_LERP_SPEED);
         
         // Smooth look-at target
-        cameraLookAtTarget.lerp(katamariPosition, 0.1);
+        cameraLookAtTarget.lerp(katamariPosition, CAMERA.LOOK_AT_LERP_SPEED);
         camera.lookAt(cameraLookAtTarget);
     }
 

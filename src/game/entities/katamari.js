@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createKatamariBody, updateKatamariPhysics, removePhysicsBody, addPhysicsBody } from '../core/physics.js';
 import { debugInfo, debugWarn, debugError, debugLog } from '../utils/debug.js';
-import { KATAMARI } from '../utils/constants.js';
+import { KATAMARI, COLLECTION, VISUAL, MOVEMENT } from '../utils/constants.js';
 
 /**
  * Katamari class manages the player-controlled ball entity
@@ -60,12 +60,12 @@ export class Katamari {
         this.group = new THREE.Group();
 
         // Create the core ball geometry and material
-        const katGeo = new THREE.SphereGeometry(this.radius, 32, 32);
+        const katGeo = new THREE.SphereGeometry(this.radius, VISUAL.KATAMARI_GEOMETRY_SEGMENTS, VISUAL.KATAMARI_GEOMETRY_SEGMENTS);
         const katamariTexture = new THREE.CanvasTexture(this.generateKatamariTexture());
         const katMat = new THREE.MeshStandardMaterial({
             map: katamariTexture,
-            roughness: 0.6,
-            metalness: 0.1
+            roughness: VISUAL.KATAMARI_MATERIAL_ROUGHNESS,
+            metalness: VISUAL.KATAMARI_MATERIAL_METALNESS
         });
 
         this.coreBall = new THREE.Mesh(katGeo, katMat);
@@ -88,8 +88,8 @@ export class Katamari {
         this.body = createKatamariBody(this.radius, position, { name: 'katamari' });
 
         // Set physics properties
-        this.body.linearDamping = 0.05; // Reduced linear damping for more natural momentum
-        this.body.angularDamping = 0.1; // Slight angular damping to prevent excessive spinning
+        this.body.linearDamping = MOVEMENT.ACTIVE_LINEAR_DAMPING; // Reduced linear damping for more natural momentum
+        this.body.angularDamping = MOVEMENT.ACTIVE_ANGULAR_DAMPING; // Slight angular damping to prevent excessive spinning
 
         // Store collision handler reference for proper cleanup
         this.collisionHandler = (event) => {
@@ -244,22 +244,19 @@ export class Katamari {
         this.isMovingInput = false;
 
         // Simplified acceleration calculation - much higher base values for responsive movement
-        const baseAcceleration = 80; // Increased from 15
-        const maxAcceleration = 200; // Increased from 50
-        this.currentAcceleration = Math.min(baseAcceleration + (this.radius * 2), maxAcceleration);
+        this.currentAcceleration = Math.min(MOVEMENT.BASE_ACCELERATION + (this.radius * MOVEMENT.ACCELERATION_RADIUS_MULTIPLIER), MOVEMENT.MAX_ACCELERATION);
 
         // Handle gyroscope input
         if (useGyroscope && gyro.normalizedGamma !== undefined && gyro.normalizedBeta !== undefined) {
-            const gyroSensitivity = 0.8; // Increased sensitivity
             const forwardBackwardTilt = -gyro.normalizedGamma;
             const leftRightTilt = gyro.normalizedBeta;
 
-            desiredMovementDirection.x += cameraDirection.x * forwardBackwardTilt * gyroSensitivity;
-            desiredMovementDirection.z += cameraDirection.z * forwardBackwardTilt * gyroSensitivity;
-            desiredMovementDirection.x -= rightDirection.x * leftRightTilt * gyroSensitivity;
-            desiredMovementDirection.z -= rightDirection.z * leftRightTilt * gyroSensitivity;
+            desiredMovementDirection.x += cameraDirection.x * forwardBackwardTilt * MOVEMENT.GYRO_SENSITIVITY;
+            desiredMovementDirection.z += cameraDirection.z * forwardBackwardTilt * MOVEMENT.GYRO_SENSITIVITY;
+            desiredMovementDirection.x -= rightDirection.x * leftRightTilt * MOVEMENT.GYRO_SENSITIVITY;
+            desiredMovementDirection.z -= rightDirection.z * leftRightTilt * MOVEMENT.GYRO_SENSITIVITY;
 
-            if (Math.abs(forwardBackwardTilt) > 0.1 || Math.abs(leftRightTilt) > 0.1) {
+            if (Math.abs(forwardBackwardTilt) > MOVEMENT.GYRO_THRESHOLD || Math.abs(leftRightTilt) > MOVEMENT.GYRO_THRESHOLD) {
                 this.isMovingInput = true;
             }
         } else {
@@ -303,7 +300,7 @@ export class Katamari {
 
             // Calculate torque for rolling motion (like in the working backup)
             // Torque = Force * Radius (simplified for a sphere rolling on a plane)
-            const torqueMagnitude = this.currentAcceleration * this.body.mass * this.radius * 0.5;
+            const torqueMagnitude = this.currentAcceleration * this.body.mass * this.radius * MOVEMENT.TORQUE_MULTIPLIER;
 
             // The axis of rotation should be perpendicular to the desired movement direction and the 'up' vector
             const rotationAxis = new CANNON.Vec3();
@@ -318,25 +315,23 @@ export class Katamari {
             this.body.applyTorque(torque);
 
             // Adjust damping when actively moving (like backup)
-            this.body.linearDamping = 0.05;
-            this.body.angularDamping = 0.05;
+            this.body.linearDamping = MOVEMENT.ACTIVE_LINEAR_DAMPING;
+            this.body.angularDamping = MOVEMENT.ACTIVE_ANGULAR_DAMPING;
         } else {
             // Increase damping when no input to slow down (like backup)
-            this.body.linearDamping = 0.9;
-            this.body.angularDamping = 0.9;
+            this.body.linearDamping = MOVEMENT.IDLE_LINEAR_DAMPING;
+            this.body.angularDamping = MOVEMENT.IDLE_ANGULAR_DAMPING;
         }
 
         // Simplified velocity clamping
-        const maxSpeed = 25; // Increased max speed
         const currentSpeed = this.body.velocity.length();
-        if (currentSpeed > maxSpeed) {
-            this.body.velocity.scale(maxSpeed / currentSpeed, this.body.velocity);
+        if (currentSpeed > MOVEMENT.MAX_SPEED) {
+            this.body.velocity.scale(MOVEMENT.MAX_SPEED / currentSpeed, this.body.velocity);
         }
 
-        const maxAngularSpeed = 8; // Increased max angular speed
         const currentAngularSpeed = this.body.angularVelocity.length();
-        if (currentAngularSpeed > maxAngularSpeed) {
-            this.body.angularVelocity.scale(maxAngularSpeed / currentAngularSpeed, this.body.angularVelocity);
+        if (currentAngularSpeed > MOVEMENT.MAX_ANGULAR_SPEED) {
+            this.body.angularVelocity.scale(MOVEMENT.MAX_ANGULAR_SPEED / currentAngularSpeed, this.body.angularVelocity);
         }
     }
 
@@ -415,10 +410,10 @@ export class Katamari {
             
             if (child.userData.isAttachedToKatamari && child.userData.initialLocalPosition) {
                 // Calculate dynamic compression based on current Katamari size - more aggressive compression
-                const compressionFactor = Math.max(0.3, 1.0 - this.radius * 0.008); // Increased compression rate from 0.005 to 0.008
+                const compressionFactor = Math.max(0.3, 1.0 - this.radius * COLLECTION.COMPRESSION_RATE);
                 
                 // Calculate much tighter positioning as katamari grows - items closer to surface
-                const desiredDistance = this.radius + child.userData.initialSize * 0.15 * compressionFactor; // Reduced from 0.3 to 0.15
+                const desiredDistance = this.radius + child.userData.initialSize * COLLECTION.SURFACE_DISTANCE_FACTOR * compressionFactor;
                 const direction = child.userData.initialLocalPosition.clone().normalize();
                 const currentLocalPosition = direction.multiplyScalar(desiredDistance);
 
@@ -430,7 +425,7 @@ export class Katamari {
                 child.position.copy(currentLocalPosition);
 
                 // Apply stronger compression scaling as katamari grows, but keep items larger
-                const scale = Math.max(0.6, 0.85 * compressionFactor); // Increased from 0.7 to 0.85, with minimum of 0.6
+                const scale = Math.max(COLLECTION.MIN_COMPRESSION_SCALE, COLLECTION.ATTACHMENT_SCALE * compressionFactor);
                 child.scale.set(scale, scale, scale);
 
                 // Make items slowly rotate on their own axis for visual interest
@@ -468,7 +463,7 @@ export class Katamari {
     /**
      * Grow the katamari by collecting an item - authentic PlayStation game formula
      */
-    collectItem(itemSize, volumeContributionFactor = 0.8) {
+    collectItem(itemSize, volumeContributionFactor = COLLECTION.VOLUME_CONTRIBUTION_FACTOR) {
         const oldRadius = this.radius;
         
         // Authentic katamari growth formula with diminishing returns
@@ -477,14 +472,14 @@ export class Katamari {
         const katamariVolume = Math.pow(oldRadius, 3);
         
         // Progressive difficulty scaling - larger katamari needs more items to grow
-        const difficultyScale = Math.max(0.1, 1.0 - (this.radius * 0.02)); // Reduces contribution as katamari grows
+        const difficultyScale = Math.max(0.1, 1.0 - (this.radius * COLLECTION.DIFFICULTY_SCALE_RATE)); // Reduces contribution as katamari grows
         
         // Size-based contribution - smaller items contribute less relative to katamari size
         const sizeRatio = itemSize / oldRadius;
-        const contributionMultiplier = Math.min(1.0, sizeRatio * 2.0); // Items smaller than half katamari size contribute less
+        const contributionMultiplier = Math.min(1.0, sizeRatio * COLLECTION.SIZE_RATIO_MULTIPLIER); // Items smaller than half katamari size contribute less
         
         // Final volume contribution with authentic scaling
-        const volumeContribution = itemVolume * volumeContributionFactor * difficultyScale * contributionMultiplier * 0.3; // Reduced overall growth rate
+        const volumeContribution = itemVolume * volumeContributionFactor * difficultyScale * contributionMultiplier * COLLECTION.GROWTH_RATE_REDUCTION; // Reduced overall growth rate
         
         const newVolume = katamariVolume + volumeContribution;
         const newRadius = Math.cbrt(newVolume);
@@ -523,10 +518,10 @@ export class Katamari {
         const localDirection = directionFromKatamariCenter.applyQuaternion(this.group.quaternion.clone().invert());
 
         // Calculate compression factor - more compression as katamari grows
-        const compressionFactor = Math.max(0.3, 1.0 - this.radius * 0.008); // Increased compression rate from 0.005 to 0.008
+        const compressionFactor = Math.max(0.3, 1.0 - this.radius * COLLECTION.COMPRESSION_RATE);
         
         // Position on surface with much tighter compression (much closer to surface)
-        const minOrbitalDistance = this.radius + attachedMesh.userData.size * 0.15 * compressionFactor; // Reduced from 0.3 to 0.15
+        const minOrbitalDistance = this.radius + attachedMesh.userData.size * COLLECTION.SURFACE_DISTANCE_FACTOR * compressionFactor;
         localDirection.normalize().multiplyScalar(minOrbitalDistance);
 
         // Set the item's initial local position
@@ -536,11 +531,11 @@ export class Katamari {
         attachedMesh.userData.isAttachedToKatamari = true;
         attachedMesh.userData.initialLocalPosition = localDirection.clone();
         attachedMesh.userData.initialSize = attachedMesh.userData.size; // Store original size
-        attachedMesh.userData.rotationSpeed = (Math.random() * 0.5 + 0.2); // Random speed for individual rotation
+        attachedMesh.userData.rotationSpeed = (Math.random() * (COLLECTION.ORBITAL_SPEED_RANGE[1] - COLLECTION.ORBITAL_SPEED_RANGE[0]) + COLLECTION.ORBITAL_SPEED_RANGE[0]); // Random speed for individual rotation
         attachedMesh.userData.currentOrbitalAngle = 0; // Initialize orbital angle
 
         // Apply compression scale to the item for visual effect, but keep items larger
-        const compressionScale = Math.max(0.6, 0.85 * compressionFactor); // Increased from 0.7 to 0.85, with minimum of 0.6
+        const compressionScale = Math.max(COLLECTION.MIN_COMPRESSION_SCALE, COLLECTION.ATTACHMENT_SCALE * compressionFactor);
         attachedMesh.scale.set(compressionScale, compressionScale, compressionScale);
 
         debugInfo(`Item attached to katamari with compression: scale=${compressionScale.toFixed(2)}, distance=${minOrbitalDistance.toFixed(2)}`);
@@ -728,11 +723,10 @@ export class Katamari {
      * Check if the katamari can collect an item of given size
      */
     canCollectItem(itemSize) {
-        // Authentic PlayStation game collection threshold - much stricter like the original
-        // Katamari needs to be significantly larger than items to collect them
-        // Progressive difficulty: larger katamari needs to be even bigger relative to items
-        const baseThreshold = 1.2; // Need to be 20% larger than item minimum
-        const progressiveThreshold = Math.min(2.0, baseThreshold + (this.radius * 0.05)); // Gets stricter as katamari grows
+        // More forgiving collection threshold - easier to pick up items
+        // Katamari can collect items that are similar in size
+        // Reduced progressive difficulty for better gameplay flow
+        const progressiveThreshold = Math.min(COLLECTION.MAX_THRESHOLD, COLLECTION.BASE_THRESHOLD + (this.radius * COLLECTION.PROGRESSIVE_SCALING));
         
         return this.radius >= itemSize * progressiveThreshold;
     }
@@ -741,13 +735,8 @@ export class Katamari {
      * Get the attraction range for items
      */
     getAttractionRange() {
-        const baseSuckRangeFactor = 1.5;
-        const minSuckRangeFactor = 1.2;
-        const maxSuckRangeFactor = 3.0;
-        const suckFactorGrowthRate = 0.1;
-
-        let calculatedSuckRangeFactor = minSuckRangeFactor + (this.radius * suckFactorGrowthRate);
-        calculatedSuckRangeFactor = Math.min(maxSuckRangeFactor, calculatedSuckRangeFactor);
+        let calculatedSuckRangeFactor = COLLECTION.MIN_ATTRACTION_RANGE_FACTOR + (this.radius * COLLECTION.ATTRACTION_RANGE_GROWTH_RATE);
+        calculatedSuckRangeFactor = Math.min(COLLECTION.MAX_ATTRACTION_RANGE_FACTOR, calculatedSuckRangeFactor);
 
         return this.radius * calculatedSuckRangeFactor;
     }

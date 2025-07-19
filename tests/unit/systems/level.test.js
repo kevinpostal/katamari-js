@@ -29,8 +29,15 @@ vi.mock('../../../src/game/utils/debug.js', () => ({
 }));
 
 vi.mock('../../../src/game/utils/constants.js', () => ({
-    LEVEL: {
-        DIFFICULTY_FACTOR: 0.5
+    UI: {
+        LOADING_SIMULATION_TIME: 1500
+    },
+    WORLD: {
+        MAP_BOUNDARY: 500,
+        ITEM_SPAWN_RADIUS: 100,
+        ITEM_SPAWN_COUNT: 200,
+        INITIAL_ITEM_SPAWN_RADIUS: 180,
+        MIN_SPAWN_DISTANCE: 10
     },
     THEMES: [
         {
@@ -57,7 +64,10 @@ vi.mock('../../../src/game/utils/constants.js', () => ({
             skyColor: "#0A0A2A",
             baseTargetSize: 200
         }
-    ]
+    ],
+    LEVEL: {
+        DIFFICULTY_FACTOR: 0.5
+    }
 }));
 
 vi.mock('../../../src/game/systems/ui.js', () => ({

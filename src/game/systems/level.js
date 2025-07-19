@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import { debugInfo, debugLog } from '../utils/debug.js';
-import { LEVEL, THEMES } from '../utils/constants.js';
+import { LEVEL, THEMES, WORLD, UI } from '../utils/constants.js';
 import { 
     showLoadingOverlay, 
     hideLoadingOverlay, 
@@ -91,7 +91,7 @@ async function generateNewLevel(createKatamariCallback = null) {
     // Generate initial items
     debugInfo("Creating initial collectible items...");
     const initialPosition = new THREE.Vector3(0, 0, 0);
-    createCollectibleItems(200, currentTheme.items, initialPosition, 180, true, 10); // Allow on-camera for initial spawn, min 10 units from center
+    createCollectibleItems(WORLD.ITEM_SPAWN_COUNT, currentTheme.items, initialPosition, WORLD.INITIAL_ITEM_SPAWN_RADIUS, true, WORLD.MIN_SPAWN_DISTANCE); // Allow on-camera for initial spawn, min 10 units from center
     resetLastGenerationPosition(initialPosition);
 
     isGeneratingLevel = false;
@@ -108,7 +108,7 @@ async function generateLevelTheme() {
     const theme = THEMES[(currentLevel - 1) % THEMES.length];
     showLoadingOverlay(`Generating ${theme.themeName}... ✨`);
     
-    await new Promise(r => setTimeout(r, 1500)); // Simulate loading time
+    await new Promise(r => setTimeout(r, UI.LOADING_SIMULATION_TIME)); // Simulate loading time
     hideLoadingOverlay();
     
     debugInfo("Finished generateLevelTheme. Selected theme:", theme.themeName);

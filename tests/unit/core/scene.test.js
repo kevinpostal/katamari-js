@@ -39,6 +39,10 @@ vi.mock('../../../src/game/utils/debug.js', () => ({
 
 // Mock the constants module
 vi.mock('../../../src/game/utils/constants.js', () => ({
+    CAMERA: {
+        INITIAL_POSITION: { x: 0, y: 15, z: 30 },
+        LOOK_AT_POSITION: { x: 0, y: 0, z: 0 }
+    },
     RENDERING: {
         CAMERA_FOV: 75,
         CAMERA_NEAR: 0.1,
@@ -56,6 +60,16 @@ vi.mock('../../../src/game/utils/constants.js', () => ({
         DIRECTIONAL_POSITION: { x: 10, y: 10, z: 5 },
         SHADOW_CAMERA_SIZE: 50,
         SHADOW_BIAS: -0.0001
+    },
+    ITEM_GENERATION: {
+        FADE_DURATION: 500,
+        CLEANUP_DISTANCE_THRESHOLD: 180,
+        LINEAR_DAMPING: 0.1,
+        ANGULAR_DAMPING: 0.1,
+        DEFAULT_GEOMETRY_SIZE: 1,
+        SPHERE_WIDTH_SEGMENTS: 8,
+        SPHERE_HEIGHT_SEGMENTS: 6,
+        CYLINDER_RADIAL_SEGMENTS: 8
     }
 }));
 
