@@ -764,7 +764,7 @@ export function updateItemFadeIn() {
     for (const item of itemsToCollect) {
         if (item.userData.isFadingIn) {
             const elapsed = Date.now() - item.userData.fadeStartTime;
-            const progress = Math.min(elapsed / ITEM_FADE_DURATION, 1);
+            const progress = Math.min(elapsed / RENDERING.ITEM_FADE_DURATION, 1);
             const opacity = progress;
 
             if (item.userData.isInstanced) {
@@ -818,7 +818,7 @@ export function cleanupOldItems(katamariPosition) {
     for (let i = itemsToCollect.length - 1; i >= 0; i--) {
         const itemThreeMesh = itemsToCollect[i];
 
-        if (katamariPosition.distanceTo(itemThreeMesh.position) > CLEANUP_DISTANCE_THRESHOLD) {
+        if (katamariPosition.distanceTo(itemThreeMesh.position) > ITEM_GENERATION.CLEANUP_DISTANCE_THRESHOLD) {
             // Remove physics body using the improved cleanup function
             const itemCannonBody = itemThreeMesh.userData.cannonBody;
             if (itemCannonBody) {

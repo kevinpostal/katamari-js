@@ -53,7 +53,6 @@ export const COLLECTION = {
 // Level generation constants
 export const LEVEL = {
     GENERATION_DISTANCE_THRESHOLD: 50, // Generate new items every 50 units of travel
-    CLEANUP_DISTANCE_THRESHOLD: 200, // Remove items beyond 200 units from Katamari
     MAP_BOUNDARY: 240, // Max X and Z coordinate for item generation to stay on map
     DIFFICULTY_FACTOR: 0.5 // 0.5x increase per level
 };
