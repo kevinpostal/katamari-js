@@ -4,14 +4,6 @@ inclusion: always
 
 # Project Structure & Architecture
 
-## Single-File Architecture
-
-- **MANDATORY**: All game code lives in `index.html` - HTML, CSS, and JavaScript combined
-- **NO BUILD SYSTEM**: Import dependencies via ES6 modules from CDN only
-- Use IIFE module pattern to wrap entire game logic
-
-## Code Organization (within index.html)
-
 ### Required Structure Order
 
 1. **HTML** - Game UI, overlays, control instructions

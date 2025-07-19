@@ -50,8 +50,12 @@
     "test:profile": "vitest --run --reporter=verbose --coverage --config vitest.profile.config.js",
     "test:dashboard": "node scripts/test-metrics-dashboard.js",
     "test:report": "npm run test:coverage && npm run test:dashboard",
-    "deploy": "node deploy.js",
-    "deploy:build": "npm run build && npm run deploy"
+    "deploy": "node scripts/deploy.js",
+    "deploy:build": "npm run build && npm run deploy",
+    "deploy:clean": "npm run clean && npm run deploy:build",
+    "deploy:preview": "npm run build && npm run preview",
+    "predeploy": "npm run build",
+    "postdeploy": "echo 'Deployment complete! Visit: https://kevinpostal.github.io/katamari-js/'"
   },
   "dependencies": {
     "cannon-es": "0.20.0",

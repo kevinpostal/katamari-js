@@ -6,6 +6,9 @@ import commonjs from '@rollup/plugin-commonjs';
 import terser from '@rollup/plugin-terser';
 
 export default defineConfig(({ mode }) => ({
+  // Root directory and entry point
+  root: '.',
+  
   // Plugins configuration
   plugins: [
     // Node resolve for better dependency resolution
@@ -76,6 +79,9 @@ export default defineConfig(({ mode }) => ({
     open: true,
     host: true
   },
+  
+  // Base path for GitHub Pages deployment
+  base: mode === 'production' ? '/katamari-js/' : '/',
   
   // Build configuration for single-file deployment
   build: {

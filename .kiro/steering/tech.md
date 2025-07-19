@@ -11,19 +11,13 @@ inclusion: always
 - **Tone.js** (v14.8.49) - Real-time audio synthesis
 - **Vanilla JavaScript** - ES6+ modules, no build system
 
-## Mandatory Architecture Rules
-
-- **Single file only**: All code must live in `index.html` - HTML, CSS, and JavaScript combined
-- **IIFE module pattern**: Wrap entire game logic to avoid global pollution
-- **CDN imports only**: Use ES6 modules from CDN, no build system or local dependencies
-- **4-space indentation**: Maintain consistently throughout all code sections
-
 ## Code Style Standards
 
 - Use `const` for immutable references, `let` for mutable variables
 - Prefix physics bodies with descriptive names for debugging (e.g., `ball_`, `obstacle_`)
 - Group related functionality with clear comment section headers
 - Use conditional logging functions: `debugLog()`, `debugWarn()`, `debugError()`
+- Consistent 4-space indentation throughout
 
 ## Performance Requirements
 
@@ -31,6 +25,13 @@ inclusion: always
 - **Instanced rendering**: Use for repeated objects (MAX_INSTANCES = 1000)
 - **Dynamic cleanup**: Activate/deactivate physics bodies based on distance/relevance
 - **Fixed timestep**: Physics simulation must use consistent timing
+- **Memory management**: Clean up distant objects to prevent memory leaks
+
+## Architecture Pattern
+
+- **Module isolation**: Wrap all game code in IIFE to avoid global pollution
+- **State management**: Use descriptive variable names for game state
+- **Event handling**: Centralized input system supporting desktop and mobile
 
 ## Code Organization (within index.html)
 
